@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="en" style="background:#000;">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<meta name="theme-color" content="#000000" />
+<meta name="color-scheme" content="dark" />
+<title>Ocean</title>
+<link rel="icon" type="image/svg+xml" href="logo.svg" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    overflow: hidden;
+    background: #000;
+  }
+  body {
+    opacity: 1;
+  }
+  #ocean {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    display: block;
+    width: 100vw;
+    height: 100vh;
+    background: #000;
+  }
+  #loading {
+    position: fixed;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    background: #000;
+    z-index: 5;
+    transition: opacity 450ms ease;
+  }
+  #loading::before {
+    content: "";
+    width: 22px;
+    height: 22px;
+    border: 1px solid #1c1c1c;
+    border-top-color: #6f6f6f;
+    border-radius: 50%;
+    animation: spin 900ms linear infinite;
+  }
+  #loading.loaded {
+    opacity: 0;
+    pointer-events: none;
+  }
+  :root {
+    --fg: #f4f4f4;
+    --muted: rgba(244, 244, 244, 0.58);
+    --faint: rgba(244, 244, 244, 0.38);
+    --line: rgba(255, 255, 255, 0.12);
+    --glass: rgba(255, 255, 255, 0.055);
+    --glass-strong: rgba(255, 255, 255, 0.11);
+    --pad-x: clamp(22px, 6vw, 88px);
+    --font: "Inter", -apple-system, system-ui, Helvetica, Arial, sans-serif;
+    --display: "Space Grotesk", "Inter", Helvetica, Arial, sans-serif;
+  }
+
+  /* ---- legibility scrims: above the canvas, below the UI ---- */
+  .scrim {
+    position: fixed;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+  }
+  .scrim::before {
+    /* darken the very top (nav) and bottom (content) */
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+      linear-gradient(180deg, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0) 24%),
+      linear-gradient(0deg,   rgba(0,0,0,0.80) 0%, rgba(0,0,0,0.20) 32%, rgba(0,0,0,0) 60%);
+  }
+  .scrim::after {
+    /* gentle left fade so the headline reads, keeping the right-side glow */
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, rgba(0,0,0,0.42) 0%, rgba(0,0,0,0) 48%);
+  }
+
+  /* ---- top navigation ---- */
+  .site-nav {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 4;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    padding: clamp(18px, 2.6vw, 30px) var(--pad-x);
+    font-family: var(--font);
+  }
+  .brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    color: var(--fg);
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    text-decoration: none;
+  }
+  .brand-logo {
+    display: block;
+    height: 30px;
+    width: auto;
+  }
+  .nav-links {
+    display: flex;
+    align-items: center;
+    gap: clamp(18px, 2vw, 34px);
+  }
+  .nav-links a {
+    color: var(--muted);
+    font-size: 13.5px;
+    font-weight: 500;
+    text-decoration: none;
+    transition: color 0.25s ease;
+  }
+  .nav-links a:hover { color: var(--fg); }
+  .nav-cta {
+    padding: 9px 16px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    color: var(--fg) !important;
+    background: var(--glass);
+    backdrop-filter: blur(16px) saturate(120%);
+    -webkit-backdrop-filter: blur(16px) saturate(120%);
+    transition: background 0.25s ease, border-color 0.25s ease;
+  }
+  .nav-cta:hover {
+    background: var(--glass-strong);
+    border-color: rgba(255, 255, 255, 0.26);
+  }
+
+  /* ---- hero, anchored bottom-left over the dark water ---- */
+  .hero {
+    position: fixed;
+    inset: 0;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    padding: clamp(96px, 14vh, 150px) var(--pad-x) clamp(72px, 12vh, 130px);
+    box-sizing: border-box;
+    font-family: var(--font);
+    color: var(--fg);
+    pointer-events: none;            /* drags pass through to the canvas... */
+  }
+  .hero a, .hero button { pointer-events: auto; }   /* ...but controls stay clickable */
+
+  .hero-inner { max-width: 940px; }
+
+  .eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    margin: 0 0 24px;
+    padding: 7px 14px 7px 11px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: var(--glass);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    color: var(--muted);
+    font-size: 12.5px;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    pointer-events: auto;
+  }
+
+  .hero h1 {
+    margin: 0;
+    max-width: 15ch;
+    font-family: var(--display);
+    font-size: clamp(46px, 7.2vw, 100px);
+    font-weight: 600;
+    line-height: 0.98;
+    letter-spacing: -0.025em;
+    background: linear-gradient(180deg, #ffffff 0%, #d2d2d2 58%, #a6a6a6 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .hero p {
+    max-width: 52ch;
+    margin: 24px 0 0;
+    color: var(--muted);
+    font-size: clamp(16px, 1.45vw, 20px);
+    font-weight: 450;
+    line-height: 1.5;
+  }
+
+  .hero-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+    margin-top: 32px;
+  }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    height: 54px;
+    border-radius: 999px;
+    font-family: var(--font);
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    text-decoration: none;
+    white-space: nowrap;
+    transition: transform 0.28s cubic-bezier(0.2, 0.7, 0.2, 1),
+                background 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+  }
+  .btn:active { transform: translateY(0); }
+
+  /* primary: clean white pill */
+  .btn-primary {
+    padding: 0 28px;
+    color: #0a0a0a;
+    background: linear-gradient(180deg, #ffffff 0%, #ededed 100%);
+    box-shadow: 0 10px 34px rgba(255, 255, 255, 0.14), inset 0 1px 0 #ffffff;
+  }
+  .btn-primary:hover {
+    transform: translateY(-2px);
+  }
+
+  /* rating chip sitting to the right of the button */
+  .rating {
+    display: inline-flex;
+    align-items: center;
+    color: var(--fg);
+    font-size: 19px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    pointer-events: auto;
+  }
+
+  @media (max-width: 720px) {
+    .nav-links a:not(.nav-cta) { display: none; }
+    .hero { padding: 92px 22px 96px; }
+    .hero h1 { font-size: clamp(40px, 12vw, 66px); letter-spacing: -0.02em; }
+    .hero p { margin-top: 18px; }
+    .hero-actions { margin-top: 26px; }
+  }
+  @media (max-width: 420px) {
+    .hero-actions { gap: 18px; }
+  }
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+  /* graceful fallback if WebGL is unavailable */
+  .nowebgl {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #555;
+    font: 14px/1.4 -apple-system, system-ui, sans-serif;
+    background: radial-gradient(120% 80% at 80% 50%, #2a2a2a 0%, #050505 60%);
+  }
+</style>
+</head>
+<body style="background:#000;">
+<div id="loading" aria-hidden="true"></div>
+<div class="scrim" aria-hidden="true"></div>
+<header class="site-nav">
+  <a class="brand" href="#" aria-label="cylian.nl — home"><img class="brand-logo" src="logo.svg" alt="cylian.nl" /></a>
+  <nav class="nav-links" aria-label="Primary navigation">
+    <a class="nav-cta" href="https://discord.gg/cyn">Join Discord</a>
+  </nav>
+</header>
+<main class="hero">
+  <section class="hero-inner" aria-label="Hero">
+    <span class="eyebrow">New products &amp; services live now</span>
+    <h1>Online services, done right.</h1>
+    <p>Digital products, design, automation, and resilient web infrastructure — everything you need to launch and grow, without looking unfinished.</p>
+    <div class="hero-actions">
+      <a class="btn btn-primary" href="#">Browse products</a>
+      <span class="rating" aria-label="4.9 out of 5 stars">4.9★</span>
+    </div>
+  </section>
+</main>
+<canvas id="ocean"></canvas>
+<script>
+const canvas = document.getElementById("ocean");
+const loading = document.getElementById("loading");
+const gl = canvas.getContext("webgl") || canvas.getContext("experimental-webgl");
+
+if (!gl) {
+  loading.remove();
+  const d = document.createElement("div");
+  d.className = "nowebgl";
+  d.textContent = "WebGL is required to view this.";
+  document.body.appendChild(d);
+} else {
+  const vert = `
+    attribute vec2 aPos;
+    void main() {
+      gl_Position = vec4(aPos, 0.0, 1.0);
+    }
+  `;
+
+  // Realistic-ish dark monochrome ocean: a perspective-projected wave plane
+  // lit by a soft glow sitting on the horizon, like the reference photo.
+  const frag = `
+    precision highp float;
+
+    uniform vec2  uRes;
+    uniform float uTime;
+
+    // --- hash / value noise -------------------------------------------------
+    float hash(vec2 p) {
+      p = fract(p * vec2(123.34, 456.21));
+      p += dot(p, p + 45.32);
+      return fract(p.x * p.y);
+    }
+
+    float noise(vec2 p) {
+      vec2 i = floor(p);
+      vec2 f = fract(p);
+      vec2 u = f * f * (3.0 - 2.0 * f);
+      float a = hash(i + vec2(0.0, 0.0));
+      float b = hash(i + vec2(1.0, 0.0));
+      float c = hash(i + vec2(0.0, 1.0));
+      float d = hash(i + vec2(1.0, 1.0));
+      return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
+    }
+
+    // ===================== RAYMARCHED OCEAN ==============================
+    // Real wave geometry: rays are traced until they hit the actual sea
+    // surface, so crests rise, occlude troughs, and self-shade -> looks 3D.
+    // (technique after Alexander Alekseev's "Seascape")
+
+    const int   ITER_GEOMETRY = 3;
+    const int   ITER_NORMAL   = 4;
+    const float SEA_HEIGHT    = 0.6;
+    const float SEA_CHOPPY    = 3.5;
+    const float SEA_FREQ      = 0.16;
+    const float SEA_SPEED     = 0.9;
+    const float EYE_HEIGHT     = 3.2;
+
+    // swell mostly rolls LEFT (+x) with a little drift toward the camera
+    vec2 seaDrift(float t) { return vec2(1.0, 0.28) * t * SEA_SPEED; }
+
+    const mat2 octM = mat2(1.6, 1.2, -1.2, 1.6);
+
+    // a single sharp-crested wave octave
+    float seaOctave(vec2 uv, float choppy) {
+      uv += noise(uv);
+      vec2 wv  = 1.0 - abs(sin(uv));
+      vec2 swv = abs(cos(uv));
+      wv = mix(wv, swv, wv);
+      return pow(1.0 - pow(wv.x * wv.y, 0.65), choppy);
+    }
+
+    // sea surface height at world xz
+    float getSea(vec2 p, int iters, float t) {
+      float freq   = SEA_FREQ;
+      float amp    = SEA_HEIGHT;
+      float choppy = SEA_CHOPPY;
+      vec2  uv     = p;  uv.x *= 0.75;
+      vec2  drift  = seaDrift(t);
+      float h = 0.0;
+      for (int i = 0; i < 5; i++) {
+        if (i >= iters) break;
+        float d  = seaOctave((uv + drift) * freq, choppy);
+        d       += seaOctave((uv - drift) * freq, choppy);
+        h += d * amp;
+        uv = octM * uv;
+        freq *= 1.9; amp *= 0.22; choppy = mix(choppy, 1.0, 0.2);
+      }
+      return h;
+    }
+
+    float mapSea(vec3 p, float t) { return p.y - getSea(p.xz, ITER_GEOMETRY, t); }
+
+    vec3 getNormal(vec3 p, float eps, float t) {
+      vec3 n;
+      n.y = getSea(p.xz, ITER_NORMAL, t);
+      n.x = getSea(vec2(p.x + eps, p.z), ITER_NORMAL, t) - n.y;
+      n.z = getSea(vec2(p.x, p.z + eps), ITER_NORMAL, t) - n.y;
+      n.y = eps;
+      return normalize(n);
+    }
+
+    // bisection ray-vs-heightfield trace. returns distance; hit==false -> sky
+    float traceSea(vec3 ori, vec3 dir, float t, out vec3 pos, out bool hit) {
+      float tmin = 0.0;
+      float tmax = 1000.0;
+      float hmax = mapSea(ori + dir * tmax, t);
+      if (hmax > 0.0) { hit = false; pos = ori + dir * tmax; return tmax; }
+      hit = true;
+      float hmin = mapSea(ori + dir * tmin, t);
+      float tmid = 0.0;
+      for (int i = 0; i < 8; i++) {
+        tmid = mix(tmin, tmax, hmin / (hmin - hmax));
+        pos  = ori + dir * tmid;
+        float hm = mapSea(pos, t);
+        if (hm < 0.0) { tmax = tmid; hmax = hm; }
+        else          { tmin = tmid; hmin = hm; }
+      }
+      return tmid;
+    }
+
+    // brightness of the sky/horizon glow in a given view direction.
+    // reused for the actual sky AND for reflections on the water.
+    float skyGlow(vec3 d) {
+      float up   = max(d.y, 0.0);
+      float band = exp(-up * 8.0) * 0.30;                       // soft horizon band
+      float az   = d.x / max(length(d.xz), 0.001);              // -1 left .. +1 right
+      float glow = exp(-pow(az - 0.45, 2.0) * 1.3) * exp(-up * 5.0) * 0.60;
+      return band + glow;
+    }
+
+    void main() {
+      vec2  uv     = gl_FragCoord.xy / uRes.xy;          // 0..1, y up
+      vec2  p      = (gl_FragCoord.xy - 0.5 * uRes) / uRes.y;  // centered, aspect-correct
+      float aspect = uRes.x / uRes.y;
+      float t      = uTime;
+
+      float hY = 0.62;                                   // horizon screen height
+      float glowX = 0.68;
+      float dxGlow = (uv.x - glowX) * aspect;
+
+      // camera: eye above the sea, gentle lens shift to seat the horizon at hY
+      vec3 ori = vec3(0.0, EYE_HEIGHT, 0.0);
+      vec3 dir = normalize(vec3(p.x, p.y - 0.12, -1.5));
+
+      vec3 col;
+
+      if (dir.y >= 0.0) {
+        // ---------------- SKY ----------------  (ray at/above the horizon)
+        float above = uv.y - hY;
+        float sky   = exp(-above * 5.5) * 0.12;
+        float strip = exp(-above * 34.0) * 0.26;
+        float glow  = exp(-dxGlow * dxGlow * 0.55) * exp(-above * 9.0) * 0.30;
+        col = vec3(0.014)
+            + vec3(0.045) * sky
+            + vec3(0.078) * strip
+            + vec3(0.130) * glow;
+      } else {
+        // ---------------- WATER (raymarched) ----------------
+        vec3  pos;
+        bool  hit;
+        float dist = traceSea(ori, dir, t, pos, hit);
+
+        float eps = dist * (0.1 / uRes.x);
+        vec3  n   = getNormal(pos, eps, t);
+
+        // flatten wave detail only on the far horizon strip (keeps the
+        // mid-field textured instead of a blurry smear) while still taming
+        // the shimmering sub-pixel noise way out near the horizon.
+        float flatten = smoothstep(70.0, 200.0, dist) * 0.85;
+        n = normalize(mix(n, vec3(0.0, 1.0, 0.0), flatten));
+
+        // light low on the horizon, from the glow side (right)
+        vec3 L = normalize(vec3(0.8, 0.16, -0.55));
+
+        // sharp fresnel: only grazing water reflects the bright sky;
+        // wave faces stay near-black -> deep contrast instead of flat grey
+        float fres = clamp(1.0 - dot(n, -dir), 0.0, 1.0);
+        fres = pow(fres, 4.0);
+
+        vec3  refl = reflect(dir, n);
+        float sky  = skyGlow(refl);                       // reflected horizon/glow
+        float spec = pow(max(dot(refl, L), 0.0), 80.0);    // soft glints
+        float sparkle = pow(max(dot(refl, L), 0.0), 240.0); // crisp pinpoint glints
+
+        float waveTone = noise(pos.xz * 0.055 + vec2(t * 0.025, -t * 0.015));
+        float crossTone = noise(pos.zx * 0.120 + vec2(-t * 0.040, t * 0.020));
+        float faceShade = clamp(dot(n, normalize(vec3(-0.35, 0.55, 0.75))) * 0.5 + 0.5, 0.0, 1.0);
+        float depthMix = smoothstep(5.0, 85.0, dist);
+
+        vec3 deepInk   = vec3(0.004);
+        vec3 darkSmoke = vec3(0.022);
+        vec3 softBlack = vec3(0.040);
+        vec3 farCharcoal = vec3(0.014);
+        vec3 waterBase = mix(deepInk, darkSmoke, waveTone);
+        waterBase = mix(waterBase, softBlack, crossTone * 0.35);
+        waterBase = mix(waterBase, farCharcoal, depthMix * 0.30);
+        waterBase *= 0.78 + faceShade * 0.90;
+
+        // lighter highlights: brighter reflection + crisp sparkle riding the crests
+        float relief = 1.0 - flatten;                          // only on near, shaped waves
+        float crest  = smoothstep(0.40, 0.92, pos.y);          // brightest at wave tops
+
+        // fine ripple texture so the lightest areas keep detail instead of
+        // washing out to a flat patch (gated to near waves to avoid far shimmer)
+        float fineTex = noise(pos.xz * 0.85 + vec2(t * 0.10, -t * 0.06)) * 0.55
+                      + noise(pos.xz * 2.30 - vec2(t * 0.16,  t * 0.05)) * 0.45;
+        float texMod  = mix(1.0, 0.45 + fineTex * 1.10, relief);
+
+        vec3 reflection = vec3(0.20) * sky * fres * 0.62 * texMod;                       // textured mirror
+        vec3 glint      = vec3(0.55) * spec * 0.45;                                      // lighter soft glints
+        vec3 sparkleHi  = vec3(0.85) * sparkle * 0.70 * relief;                          // bright pinpoints
+        vec3 crestLight = vec3(0.50) * crest * 0.22 * relief * (0.40 + fineTex * 1.20);  // textured crest sheen
+
+        col = waterBase + reflection + glint + sparkleHi + crestLight;
+
+        // thin seam blend so the horizon line stays clean
+        float band = smoothstep(0.0, 0.035, hY - uv.y);
+        col = mix(vec3(0.011), col, band);
+      }
+
+      // gentle vignette
+      vec2 q = uv - 0.5;
+      float vig = 1.0 - 0.50 * dot(q, q);
+      col *= clamp(vig, 0.0, 1.0);
+
+      // soft highlight rolloff: the glow eases toward white instead of clipping
+      col = vec3(1.0) - exp(-col * 0.95);
+
+      // subtle film grain so flat darks don't band
+      float g = (hash(gl_FragCoord.xy + uTime) - 0.5) * 0.015;
+      col += g;
+
+      // darker, moody monochrome
+      col = pow(clamp(col, 0.0, 1.0), vec3(1.22));
+
+      gl_FragColor = vec4(col, 1.0);
+    }
+  `;
+
+  function showError(msg) {
+    const d = document.createElement("pre");
+    d.style.cssText =
+      "position:fixed;inset:0;margin:0;padding:16px;color:#f55;background:#0a0a0a;" +
+      "font:12px/1.4 monospace;white-space:pre-wrap;overflow:auto;z-index:9";
+    d.textContent = msg;
+    document.body.appendChild(d);
+  }
+
+  function compile(type, src) {
+    const s = gl.createShader(type);
+    gl.shaderSource(s, src);
+    gl.compileShader(s);
+    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
+      const log = gl.getShaderInfoLog(s);
+      console.error(log);
+      showError("Shader compile error:\n" + log);
+    }
+    return s;
+  }
+
+  const prog = gl.createProgram();
+  gl.attachShader(prog, compile(gl.VERTEX_SHADER, vert));
+  gl.attachShader(prog, compile(gl.FRAGMENT_SHADER, frag));
+  gl.linkProgram(prog);
+  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
+    showError("Shader link error:\n" + gl.getProgramInfoLog(prog));
+  }
+  gl.useProgram(prog);
+
+  const buf = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+  gl.bufferData(
+    gl.ARRAY_BUFFER,
+    new Float32Array([-1, -1, 3, -1, -1, 3]),
+    gl.STATIC_DRAW
+  );
+  const aPos = gl.getAttribLocation(prog, "aPos");
+  gl.enableVertexAttribArray(aPos);
+  gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
+
+  const uRes = gl.getUniformLocation(prog, "uRes");
+  const uTime = gl.getUniformLocation(prog, "uTime");
+
+  function resize() {
+    // cap DPR for performance on high-density displays
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const w = Math.floor(window.innerWidth * dpr);
+    const h = Math.floor(window.innerHeight * dpr);
+    if (canvas.width !== w || canvas.height !== h) {
+      canvas.width = w;
+      canvas.height = h;
+    }
+    gl.viewport(0, 0, canvas.width, canvas.height);
+  }
+  window.addEventListener("resize", resize);
+  resize();
+
+  const start = performance.now();
+  let firstFrameDrawn = false;
+  function loop() {
+    resize();
+    gl.uniform2f(uRes, canvas.width, canvas.height);
+    gl.uniform1f(uTime, (performance.now() - start) / 1000);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    if (!firstFrameDrawn) {
+      firstFrameDrawn = true;
+      loading.classList.add("loaded");
+      window.setTimeout(() => loading.remove(), 500);
+    }
+    requestAnimationFrame(loop);
+  }
+  loop();
+}
+</script>
+</body>
+</html>

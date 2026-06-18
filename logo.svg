@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1740 980" shape-rendering="geometricPrecision">
+  
+<g transform="translate(36 0)">
+  <path
+    d="
+      M 414 160
+      C 272 210, 170 338, 170 500
+      C 170 692, 318 830, 510 830
+      C 668 830, 796 744, 854 610
+
+      M 586 150
+      C 654 218, 758 324, 824 392
+      C 852 421, 888 421, 916 392
+      C 990 316, 1070 235, 1128 178
+      C 1218 154, 1326 174, 1408 242
+      C 1498 316, 1540 418, 1540 540
+      L 1540 800
+    "
+    fill="none"
+    stroke="#ffffff"
+    stroke-width="124"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+</g>
+
+</svg>
