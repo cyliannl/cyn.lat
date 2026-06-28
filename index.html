@@ -573,6 +573,8 @@
       pointer-events: none;
       transition: filter 0.3s ease;
     }
+    /* lock the page so only the embed scrolls */
+    body.embed-active { overflow: hidden; touch-action: none; }
 
     /* ---- product detail modal ---- */
     .pm-backdrop {
@@ -1321,7 +1323,6 @@
       const RAW_URL = 'https://raw.githubusercontent.com/cyliannl/container/main/products.json';
       const SHOP_ID = 228006;
 
-      function endCheckoutBlur() { document.body.classList.remove('embed-active'); }
       function startCheckout(trigger) {
         const payload = Object.values(cart)
           .filter(i => i.ok !== false)
@@ -1330,14 +1331,50 @@
         if (!(window.sellAuthEmbed && typeof window.sellAuthEmbed.checkout === 'function')) {
           console.warn('SellAuth embed script not loaded'); return;
         }
-        document.body.classList.add('embed-active');   // blur while the checkout popup is open
+
+        const beforeIframes = new Set([...document.querySelectorAll('iframe')]);
+        document.body.classList.add('embed-active');   // blur — stays on the whole time the embed is open
+        document.documentElement.style.overflow = 'hidden';   // lock page scroll (embed scrolls itself)
         window.sellAuthEmbed.checkout(trigger || document.body, { cart: payload, shopId: SHOP_ID, modal: true });
-        // if the popup never took focus (blocked), un-blur shortly after
-        setTimeout(() => { if (document.hasFocus()) endCheckoutBlur(); }, 2000);
+
+        const isVisible = (el) => {
+          if (!el) return false;
+          const cs = getComputedStyle(el);
+          const r = el.getBoundingClientRect();
+          return cs.display !== 'none' && cs.visibility !== 'hidden' && r.width > 2 && r.height > 2;
+        };
+
+        let overlay = null;
+        let done = false;
+        const startT = Date.now();
+        const reloadOnce = () => { if (done) return; done = true; cleanup(); location.reload(); };
+        const dropBlur  = () => { if (done) return; done = true; cleanup(); document.body.classList.remove('embed-active'); document.documentElement.style.overflow = ''; };
+
+        // (1) find the in-page checkout overlay (a NEW iframe the embed injects)
+        const finder = setInterval(() => {
+          overlay = [...document.querySelectorAll('iframe')].find(f => !beforeIframes.has(f) && isVisible(f)) || null;
+          if (overlay) { clearInterval(finder); }
+          else if (Date.now() - startT > 5000) {
+            clearInterval(finder);
+            if (document.hasFocus()) dropBlur();   // nothing overlaid (popup blocked) -> just un-blur
+          }
+        }, 200);
+
+        // (2) once the overlay is up, reload the page the moment it's removed/hidden (= closed)
+        const watcher = setInterval(() => {
+          if (overlay && (!document.contains(overlay) || !isVisible(overlay))) reloadOnce();
+        }, 300);
+
+        // (3) popup / new-tab fallback: regaining focus here means it was closed
+        const onFocus = () => { if (!overlay) reloadOnce(); };
+        window.addEventListener('focus', onFocus);
+
+        function cleanup() {
+          clearInterval(finder);
+          clearInterval(watcher);
+          window.removeEventListener('focus', onFocus);
+        }
       }
-      // clear the blur as soon as the user returns to this page (popup closed / finished)
-      window.addEventListener('focus', endCheckoutBlur);
-      document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') endCheckoutBlur(); });
 
       const SYM = { EUR: '€', USD: '$', GBP: '£' };
       const fmt = (p, cur) => (p > 0 ? (SYM[cur] || (cur ? cur + ' ' : '$')) + Number(p).toFixed(2) : 'Contact');
