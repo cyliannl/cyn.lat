@@ -763,6 +763,8 @@
 
     #loader .flyer img {
       display: block;
+      height: min(40vh, 320px);   /* sized before JS runs so it never flashes full-res */
+      width: auto;
       transform-origin: bottom center;
       backface-visibility: hidden;
       /* starts in its good (un-flipped) orientation */
