@@ -1,0 +1,1634 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>/cyn</title>
+  <link rel="icon" href="favicon.ico" sizes="any">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=Inter+Tight:wght@400;500;600&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+      user-select: none;
+      -webkit-touch-callout: none;   /* no long-press menu on iOS */
+    }
+
+    /* keep real text inputs selectable if any get added later */
+    input, textarea, [contenteditable] {
+      -webkit-user-select: text;
+      user-select: text;
+    }
+
+    a, img {
+      -webkit-user-drag: none;       /* no ghost-drag on links/images */
+    }
+
+    html, body {
+      height: 100%;
+    }
+    html { scroll-behavior: smooth; }
+
+    /* hide the scrollbar everywhere but keep scrolling */
+    html {
+      scrollbar-width: none;          /* Firefox */
+      -ms-overflow-style: none;       /* IE/Edge */
+    }
+    html::-webkit-scrollbar,
+    .cart-body::-webkit-scrollbar {
+      width: 0;
+      height: 0;
+      display: none;                  /* Chrome/Safari */
+    }
+    .cart-body {
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+    }
+
+    body {
+      background: #ffffff;
+      color: #000000;
+      font-family: "Space Grotesk", Helvetica, Arial, sans-serif;
+    }
+
+    .hero {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: flex-start;
+      padding: clamp(2rem, 8vw, 8rem);
+      text-align: left;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.3rem;
+      margin-bottom: clamp(0.5rem, 1.2vw, 0.85rem);
+      transform-origin: bottom left;
+    }
+
+    .brand img {
+      height: clamp(40px, 6vw, 64px);
+      width: auto;
+      transform: scaleX(-1);
+      transform-origin: bottom center;
+    }
+
+    .brand .label {
+      font-weight: 500;
+      font-size: clamp(0.95rem, 1.6vw, 1.15rem);
+      letter-spacing: 0.02em;
+      white-space: nowrap;
+    }
+
+    /* letters are animated per-character via the Web Animations API (see script) */
+    .brand .label .char {
+      display: inline-block;
+      will-change: opacity, transform, filter;
+    }
+    .brand .label .word {
+      display: inline-block;
+      white-space: nowrap;   /* never break inside a word */
+    }
+
+    .slogan {
+      font-weight: 700;
+      font-size: clamp(2.5rem, 8vw, 6rem);
+      line-height: 0.98;
+      letter-spacing: -0.04em;
+      transform-origin: top left;
+    }
+
+    /* each line rises up from behind a clip mask, with a soft blur + slight zoom */
+    .slogan .line {
+      display: block;
+      overflow: hidden;
+      padding-bottom: 0.12em;   /* room for descenders inside the mask */
+    }
+    .slogan .line-inner {
+      display: block;
+      transform: translateY(115%) scale(1.04);
+      filter: blur(5px);
+      opacity: 0;
+      transform-origin: left center;
+      transition:
+        transform 0.95s cubic-bezier(0.16, 1, 0.3, 1),
+        filter 0.8s ease,
+        opacity 0.8s ease;
+    }
+    body.ready .slogan .line-inner {
+      transform: none;
+      filter: blur(0);
+      opacity: 1;
+    }
+    body.ready .slogan .line:nth-child(2) .line-inner {
+      transition-delay: 0.13s;   /* second line follows the first */
+    }
+
+    /* ---- top bar ---- */
+    .topbar {
+      font-family: "Inter Tight", Helvetica, Arial, sans-serif;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 5;
+      mix-blend-mode: difference;       /* invert against whatever is behind */
+      display: flex;
+      justify-content: space-between;   /* logo left, nav right */
+      align-items: center;
+      gap: clamp(1.25rem, 3vw, 2.5rem);
+      padding: clamp(1.25rem, 3vw, 2rem) clamp(1.5rem, 5vw, 3.5rem);
+      opacity: 0;
+      transform: translateY(-8px);
+      transition: opacity 0.6s ease, transform 0.6s ease;
+    }
+    body.navready .topbar {
+      opacity: 1;
+      transform: none;
+    }
+
+    .topbar-nav {
+      display: flex;
+      align-items: center;
+      gap: clamp(1.25rem, 3vw, 2.5rem);
+    }
+
+    /* the hero icon "snaps" into here once you scroll past it */
+    .topbar-logo {
+      display: inline-flex;
+      align-items: center;
+      pointer-events: none;
+    }
+    .topbar.docked .topbar-logo { pointer-events: auto; }
+    .topbar-logo img {
+      height: 34px;
+      width: auto;
+      display: block;
+      opacity: 0;                 /* shown only while docked (JS-driven) */
+      transform: scaleX(-1);
+      filter: invert(1);          /* white silhouette for the blend */
+      will-change: transform, opacity;
+    }
+    /* hide the real hero icon while it's docked in the bar */
+    #brandIcon.docked-hide { opacity: 0 !important; }
+
+    .topbar a {
+      color: #ffffff;
+      text-decoration: none;
+      font-weight: 500;
+      font-size: clamp(0.9rem, 1.4vw, 1rem);
+      letter-spacing: 0.02em;
+    }
+    /* nav links: label slides up, a duplicate rises in from below */
+    .topbar .nav-link {
+      position: relative;
+      display: inline-block;
+      overflow: hidden;
+      line-height: 1.3;
+      vertical-align: middle;
+    }
+    .topbar .nav-link span {
+      display: inline-block;
+      transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .topbar .nav-link span::after {
+      content: attr(data-label);
+      position: absolute;
+      left: 0;
+      top: 100%;
+    }
+    .topbar .nav-link:hover span {
+      transform: translateY(-100%);
+    }
+
+    .topbar .cart {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      color: #ffffff;
+      transition: background 0.2s ease;
+    }
+    .topbar .cart:hover {
+      background: rgba(0, 0, 0, 0.06);
+    }
+    .topbar .cart img {
+      width: 22px;
+      height: 22px;
+      display: block;
+      object-fit: contain;
+      filter: none;            /* native white art; blend mode handles color */
+    }
+    .topbar .cart .count {
+      position: absolute;
+      top: -2px;
+      right: -2px;
+      min-width: 17px;
+      height: 17px;
+      padding: 0 4px;
+      border-radius: 9px;
+      background: #000000;
+      color: #ffffff;
+      font-size: 0.62rem;
+      font-weight: 700;
+      line-height: 17px;
+      text-align: center;
+      mix-blend-mode: normal;   /* stay a solid pill, don't invert */
+    }
+
+    /* ---- cards section (full screen) ---- */
+    .cards {
+      --gap: clamp(0.75rem, 1.5vw, 1.25rem);
+      height: 100vh;
+      box-sizing: border-box;
+      padding: clamp(1rem, 3vw, 2.5rem);
+      display: flex;
+      gap: var(--gap);
+    }
+    .cards .col-left {
+      display: flex;
+      flex-direction: column;
+      gap: var(--gap);
+    }
+    .cards .col-left .card {
+      aspect-ratio: 16 / 9;            /* locked */
+      height: calc((100% - var(--gap)) / 2);
+      width: auto;                     /* width derives from the ratio */
+    }
+    .cards .col-right {
+      flex: none;
+    }
+    .cards .col-right .card {
+      height: 100%;
+      aspect-ratio: 1 / 1;             /* square, sized to the column height */
+      width: auto;
+    }
+    .cards .card {
+      border-radius: 18px;
+      background: #f4f4f4;
+      border: 1px solid rgba(0, 0, 0, 0.08);
+      overflow: hidden;
+    }
+
+    @media (max-width: 700px) {
+      .cards {
+        flex-direction: column;
+        height: auto;
+        min-height: 100vh;
+      }
+      .cards .col-left .card {
+        height: auto;
+        width: 100%;                   /* full width, ratio drives height */
+      }
+      .cards .col-right .card {
+        height: auto;
+        width: 100%;
+        aspect-ratio: 1 / 1;
+      }
+    }
+
+    /* ---- products ---- */
+    .products {
+      max-width: 1300px;
+      margin: 0 auto;
+      padding: clamp(3rem, 6vw, 6rem) clamp(1.5rem, 5vw, 4rem);
+      font-family: "Inter Tight", Helvetica, Arial, sans-serif;
+    }
+    .products-head {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+    .products-head h2 {
+      font-family: "Space Grotesk", Helvetica, Arial, sans-serif;
+      font-weight: 700;
+      font-size: clamp(2rem, 5vw, 3.5rem);
+      letter-spacing: -0.03em;
+    }
+    .search {
+      position: relative;
+      flex: 1;
+      min-width: 220px;
+      max-width: 360px;
+    }
+    .search input {
+      width: 100%;
+      padding: 0.7rem 1rem 0.7rem 2.5rem;
+      border: 1px solid rgba(0, 0, 0, 0.15);
+      border-radius: 999px;
+      font: inherit;
+      background: #fff;
+      outline: none;
+      transition: border-color 0.2s ease;
+    }
+    .search input:focus { border-color: #000; }
+    .search svg {
+      position: absolute;
+      left: 0.9rem;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 16px;
+      height: 16px;
+      opacity: 0.45;
+      pointer-events: none;
+    }
+
+    .filters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-bottom: 2rem;
+    }
+    .filter-chip {
+      font: inherit;
+      font-size: 0.9rem;
+      padding: 0.5rem 1rem;
+      border-radius: 999px;
+      border: 1px solid rgba(0, 0, 0, 0.15);
+      background: #fff;
+      color: #000;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .filter-chip:hover { border-color: #000; }
+    .filter-chip.active { background: #000; color: #fff; border-color: #000; }
+
+    .product-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: clamp(1rem, 2vw, 1.5rem);
+    }
+    @media (min-width: 1000px) {
+      .product-grid { grid-template-columns: repeat(3, 1fr); }   /* max 3 per line */
+    }
+    .no-results { opacity: 0.5; padding: 2rem 0; grid-column: 1 / -1; }
+
+    /* image-overlay card (Design 2) */
+    .product-card {
+      position: relative;
+      aspect-ratio: 16 / 9;          /* thumbnail slot fills the card */
+      border-radius: 16px;
+      overflow: hidden;
+      background: #ececec;
+      color: #fff;
+      transition: transform 0.25s ease, box-shadow 0.25s ease;
+    }
+    .product-card:hover { box-shadow: 0 16px 38px rgba(0, 0, 0, 0.18); }
+    .product-card .thumb { position: absolute; inset: 0; background: #e9e9e9; }
+    .product-card .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .product-card .scrim {
+      position: absolute; inset: 0;
+      background: linear-gradient(to top, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.18) 55%, rgba(0,0,0,0.04) 100%);
+    }
+    .product-card .badge {
+      position: absolute; top: 0.8rem; left: 0.8rem; z-index: 2;
+      background: #fff; color: #000;
+      font-size: 0.68rem; font-weight: 700; letter-spacing: 0.04em;
+      padding: 0.25rem 0.6rem; border-radius: 999px;
+    }
+    /* quick add: instant add-to-cart */
+    .qa {
+      height: 36px;
+      background: #fff; color: #000;
+      border-radius: 999px;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+      display: inline-flex; align-items: center;
+      overflow: hidden; white-space: nowrap;
+    }
+    .product-card .qa { position: absolute; top: 0.7rem; right: 0.7rem; z-index: 3; }
+    .qa-add {
+      height: 100%; border: none; background: none; cursor: pointer;
+      padding: 0 0.95rem;
+      font: inherit; font-size: 0.82rem; font-weight: 600; color: #000;
+      display: inline-flex; align-items: center;
+      transition: background 0.18s ease;
+    }
+    .qa-add:hover { background: rgba(0, 0, 0, 0.06); }
+    .stepper { height: 100%; display: inline-flex; align-items: center; font: inherit; font-weight: 600; }
+    .stepper button {
+      border: none; background: none; cursor: pointer;
+      width: 34px; height: 100%; font-size: 1.15rem; line-height: 1;
+      display: grid; place-items: center; color: #000;
+      transition: background 0.15s ease;
+    }
+    .stepper button:hover { background: rgba(0, 0, 0, 0.08); }
+    .stepper button:disabled { opacity: 0.3; cursor: default; }
+    .stepper button:disabled:hover { background: none; }
+    .stepper .q { min-width: 1.5ch; text-align: center; font-size: 0.9rem; padding: 0 0.15rem; }
+    .product-card .info {
+      position: absolute; left: 0; right: 0; bottom: 0; z-index: 2;
+      padding: 1rem 1.1rem;
+      display: flex; align-items: flex-end; justify-content: space-between; gap: 0.8rem;
+      font-family: "Inter Tight", Helvetica, Arial, sans-serif;
+    }
+    .product-card .cat { font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.09em; opacity: 0.8; }
+    .product-card h3 { font-size: 1.1rem; font-weight: 600; line-height: 1.15; }
+    .product-card .price { font-size: 0.95rem; opacity: 0.9; margin-top: 0.15rem; }
+    .product-card .btn {
+      font: inherit; font-size: 0.85rem; font-weight: 600;
+      padding: 0.5rem 0.85rem; border-radius: 10px; cursor: pointer; white-space: nowrap;
+      border: 1px solid #fff; background: transparent; color: #fff;
+      transition: all 0.2s ease;
+    }
+    .product-card .btn:hover { background: #fff; color: #000; }
+
+    /* ---- cart line items (drawer) ---- */
+    .cart-body.has-items {
+      display: block;
+      align-items: stretch;
+      text-align: left;
+      padding-top: 0.5rem;
+      color: #000;
+    }
+    .cart-item {
+      display: flex;
+      align-items: center;
+      gap: 0.8rem;
+      padding: 0.75rem 0;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+    }
+    .ci-thumb { width: 58px; aspect-ratio: 16 / 9; border-radius: 8px; background: #f1f1f1; flex: none; overflow: hidden; }
+    .ci-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .ci-info { flex: 1; min-width: 0; }
+    .ci-title { font-size: 0.92rem; font-weight: 600; }
+    .ci-meta { font-size: 0.8rem; opacity: 0.6; }
+    .ci-remove {
+      border: none; background: none; cursor: pointer;
+      font-size: 1.2rem; line-height: 1; opacity: 0.35; padding: 0 0.3rem;
+      transition: opacity 0.2s ease;
+    }
+    .ci-remove:hover { opacity: 1; }
+
+    /* ---- footer ---- */
+    .site-footer {
+      background: #000000;
+      color: #ffffff;
+      font-family: "Inter Tight", Helvetica, Arial, sans-serif;
+      padding: clamp(3rem, 7vw, 6rem) clamp(1.5rem, 5vw, 4rem) 2rem;
+    }
+    .footer-top {
+      display: flex;
+      justify-content: space-between;
+      gap: clamp(2rem, 6vw, 5rem);
+      flex-wrap: wrap;
+    }
+    .footer-wordmark {
+      font-family: "Bricolage Grotesque", "Space Grotesk", Helvetica, Arial, sans-serif;
+      font-weight: 800;
+      font-size: clamp(4rem, 14vw, 11rem);
+      line-height: 0.85;
+      letter-spacing: -0.04em;
+    }
+    .footer-cols {
+      display: flex;
+      gap: clamp(2rem, 5vw, 4.5rem);
+      flex-wrap: wrap;
+    }
+    .footer-col h4 {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      opacity: 0.45;
+      margin-bottom: 1rem;
+      font-weight: 600;
+    }
+    .footer-col a {
+      display: block;
+      color: #ffffff;
+      text-decoration: none;
+      opacity: 0.8;
+      margin-bottom: 0.65rem;
+      font-size: 0.95rem;
+      width: fit-content;
+      transition: opacity 0.2s ease;
+    }
+    .footer-col a:hover { opacity: 1; }
+    .footer-bottom {
+      margin-top: clamp(2.5rem, 6vw, 5rem);
+      padding-top: 1.5rem;
+      border-top: 1px solid rgba(255, 255, 255, 0.15);
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 0.75rem 1.5rem;
+      font-size: 0.8rem;
+      opacity: 0.55;
+    }
+    @media (max-width: 700px) {
+      .footer-wordmark { width: 100%; }
+    }
+
+    /* blur everything while the SellAuth checkout embed is active */
+    body.embed-active .topbar,
+    body.embed-active .hero,
+    body.embed-active .cards,
+    body.embed-active .products,
+    body.embed-active .site-footer,
+    body.embed-active .cart-drawer,
+    body.embed-active .cart-backdrop,
+    body.embed-active .product-modal,
+    body.embed-active .pm-backdrop {
+      filter: blur(8px);
+      pointer-events: none;
+      transition: filter 0.3s ease;
+    }
+
+    /* ---- product detail modal ---- */
+    .pm-backdrop {
+      position: fixed; inset: 0; z-index: 30;
+      background: rgba(0, 0, 0, 0.5);
+      opacity: 0; visibility: hidden;
+      transition: opacity 0.3s ease, visibility 0.3s ease;
+    }
+    body.pm-open .pm-backdrop { opacity: 1; visibility: visible; }
+    .product-modal {
+      position: fixed; z-index: 31; left: 50%; top: 50%;
+      transform: translate(-50%, -46%) scale(0.98);
+      opacity: 0; visibility: hidden;
+      width: min(560px, 92vw); max-height: 88vh;
+      background: #fff; color: #000; border-radius: 20px; overflow: hidden;
+      display: flex; flex-direction: column;
+      box-shadow: 0 30px 80px rgba(0, 0, 0, 0.3);
+      font-family: "Inter Tight", Helvetica, Arial, sans-serif;
+      transition: opacity 0.35s ease, transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), visibility 0.35s ease;
+    }
+    body.pm-open .product-modal {
+      opacity: 1; visibility: visible;
+      transform: translate(-50%, -50%) scale(1);
+    }
+    .pm-close {
+      position: absolute; top: 0.8rem; right: 0.8rem; z-index: 2;
+      width: 34px; height: 34px; border: none; border-radius: 50%;
+      background: rgba(255, 255, 255, 0.85); cursor: pointer;
+      font-size: 1.3rem; line-height: 1; display: grid; place-items: center;
+      transition: background 0.2s ease;
+    }
+    .pm-close:hover { background: #fff; }
+    .pm-thumb { aspect-ratio: 16 / 9; background: #eee; flex: none; }
+    .pm-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .pm-body {
+      flex: 1; min-height: 0;
+      padding: 1.3rem 1.4rem 1.2rem; overflow-y: auto;
+      display: flex; flex-direction: column; gap: 0.5rem;
+      scrollbar-width: none;
+    }
+    .pm-body::-webkit-scrollbar { display: none; }
+    .pm-cat { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.09em; opacity: 0.5; }
+    .pm-title { font-family: "Space Grotesk", sans-serif; font-size: 1.6rem; font-weight: 700; letter-spacing: -0.02em; line-height: 1.1; }
+    .pm-price { font-size: 1.3rem; font-weight: 700; }
+    .pm-desc { font-size: 0.92rem; line-height: 1.5; opacity: 0.7; white-space: pre-line; }
+    .pm-variants { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0.3rem 0 0.1rem; }
+    .pm-variant {
+      font: inherit; font-size: 0.85rem; font-weight: 500;
+      padding: 0.45rem 0.8rem; border-radius: 999px;
+      border: 1px solid rgba(0, 0, 0, 0.2); background: #fff; color: #000;
+      cursor: pointer; transition: all 0.2s ease;
+    }
+    .pm-variant:hover { border-color: #000; }
+    .pm-variant.active { background: #000; color: #fff; border-color: #000; }
+    .pm-variant:disabled { opacity: 0.4; cursor: default; text-decoration: line-through; }
+    .pm-variant:disabled:hover { border-color: rgba(0, 0, 0, 0.2); }
+    .pm-actions {
+      flex: none;
+      display: flex; gap: 0.6rem; align-items: center;
+      padding: 1rem 1.4rem calc(1.1rem + env(safe-area-inset-bottom, 0px));
+      border-top: 1px solid rgba(0, 0, 0, 0.08);
+      background: #fff;
+    }
+    .pm-qa { box-shadow: none; border: 1px solid rgba(0, 0, 0, 0.25); flex: none; }
+    .pm-buy {
+      flex: 1; height: 36px; padding: 0 1rem; border: none; border-radius: 999px;
+      background: #000; color: #fff; font: inherit; font-weight: 600; cursor: pointer;
+      transition: opacity 0.2s ease;
+    }
+    .pm-buy:hover { opacity: 0.85; }
+    .pm-buy:disabled { opacity: 0.4; cursor: default; }
+
+    /* ---- cart drawer (slides up from the bottom) ---- */
+    .cart-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 20;
+      background: rgba(0, 0, 0, 0.35);
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.35s ease, visibility 0.35s ease;
+    }
+    body.cart-open .cart-backdrop {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    .cart-drawer {
+      position: fixed;
+      z-index: 21;
+      left: 50%;
+      bottom: 0;
+      transform: translateX(-50%) translateY(100%);
+      width: min(420px, 94vw);
+      height: min(85vh, 780px);
+      background: #ffffff;
+      border-radius: 22px 22px 0 0;
+      box-shadow: 0 -24px 70px rgba(0, 0, 0, 0.22);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      font-family: "Inter Tight", Helvetica, Arial, sans-serif;
+      transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    body.cart-open .cart-drawer {
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* on wider screens, dock the drawer to the bottom-right */
+    @media (min-width: 768px) {
+      .cart-drawer {
+        left: auto;
+        right: 24px;
+        transform: translateY(100%);
+      }
+      body.cart-open .cart-drawer {
+        transform: translateY(0);
+      }
+    }
+
+    .cart-handle {
+      width: 42px;
+      height: 4px;
+      border-radius: 2px;
+      background: rgba(0, 0, 0, 0.15);
+      margin: 10px auto 0;
+      flex: none;
+    }
+
+    .cart-drawer .cart-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1.1rem 1.5rem 1rem;
+      flex: none;
+    }
+    .cart-drawer .cart-head h2 {
+      font-size: 1.2rem;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+    }
+    .cart-close {
+      width: 32px;
+      height: 32px;
+      border: none;
+      background: none;
+      cursor: pointer;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: #000;
+      transition: background 0.2s ease;
+    }
+    .cart-close:hover { background: rgba(0, 0, 0, 0.06); }
+    .cart-close svg { width: 18px; height: 18px; }
+
+    .cart-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      color: rgba(0, 0, 0, 0.45);
+      font-size: 0.95rem;
+    }
+
+    .cart-foot {
+      flex: none;
+      padding: 1.1rem 1.5rem calc(1.4rem + env(safe-area-inset-bottom, 0px));
+      border-top: 1px solid rgba(0, 0, 0, 0.08);
+    }
+    .cart-total {
+      display: flex;
+      justify-content: space-between;
+      font-weight: 600;
+      margin-bottom: 0.9rem;
+    }
+    .cart-checkout {
+      width: 100%;
+      padding: 0.95rem;
+      border: none;
+      border-radius: 12px;
+      background: #000;
+      color: #fff;
+      font: inherit;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s ease;
+    }
+    .cart-checkout:hover { opacity: 0.85; }
+
+    /* ---- intro loader ---- */
+    .brand img { opacity: 0; }
+    body.handoff .brand img { opacity: 1; }
+
+    #loader {
+      position: fixed;
+      inset: 0;
+      z-index: 10;
+      pointer-events: none;
+    }
+
+    #loader .flyer {
+      position: fixed;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      perspective: 700px;
+      will-change: transform;
+    }
+
+    #loader .flyer img {
+      display: block;
+      transform-origin: bottom center;
+      backface-visibility: hidden;
+      /* starts in its good (un-flipped) orientation */
+    }
+
+    #loader.gone { display: none; }
+
+    @media (max-width: 640px) {
+      .brand .label {
+        white-space: normal;   /* let the phrase wrap (whole words only) */
+        min-width: 0;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .brand .label .char { transition: none; }
+      .slogan .line-inner { transition: none; }
+    }
+  </style>
+  <script src="https://sellauth.com/assets/js/sellauth-embed-2.js"></script>
+  <script>
+    /* always start at the top on (re)load, don't restore prior scroll */
+    if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+    window.addEventListener('load', () => window.scrollTo({ top: 0, behavior: 'instant' }));
+  </script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="topbar-logo" href="#top" aria-label="cyn — top"><img src="icon.png" alt=""></a>
+    <nav class="topbar-nav">
+      <a class="nav-link" href="#about"><span data-label="About">About</span></a>
+      <a class="nav-link" href="#shop"><span data-label="Shop">Shop</span></a>
+      <a class="cart" href="#cart" aria-label="Cart">
+        <img src="cart.webp" alt="">
+        <span class="count">0</span>
+      </a>
+    </nav>
+  </header>
+
+  <main class="hero" id="top">
+    <div class="brand">
+      <img id="brandIcon" src="icon.png" alt="/cyn">
+      <span class="label"></span>
+    </div>
+    <h1 class="slogan">
+      <span class="line"><span class="line-inner">Online services</span></span>
+      <span class="line"><span class="line-inner">done right</span></span>
+    </h1>
+  </main>
+
+  <section class="cards" id="about">
+    <div class="col-left">
+      <div class="card"></div>
+      <div class="card"></div>
+    </div>
+    <div class="col-right">
+      <div class="card"></div>
+    </div>
+  </section>
+
+  <section class="products" id="shop">
+    <div class="products-head">
+      <h2>Shop</h2>
+      <div class="search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>
+        </svg>
+        <input type="search" id="productSearch" placeholder="Search products..." aria-label="Search products">
+      </div>
+    </div>
+    <div class="filters" id="productFilters"></div>
+    <div class="product-grid" id="productGrid"></div>
+  </section>
+
+  <footer class="site-footer">
+    <div class="footer-top">
+      <div class="footer-wordmark">/cyn</div>
+      <div class="footer-cols">
+        <div class="footer-col">
+          <h4>Shop</h4>
+          <a href="#shop">All products</a>
+          <a href="#about">About</a>
+          <a href="#cart">Cart</a>
+          <a href="#faq">FAQ</a>
+        </div>
+        <div class="footer-col">
+          <h4>Community</h4>
+          <a href="https://discord.gg/" target="_blank" rel="noopener">Discord</a>
+          <a href="https://www.roblox.com/communities" target="_blank" rel="noopener">Roblox group</a>
+        </div>
+        <div class="footer-col">
+          <h4>Legal</h4>
+          <a href="#terms">Terms of Service</a>
+          <a href="#privacy">Privacy Policy</a>
+          <a href="#refunds">Refund Policy</a>
+        </div>
+        <div class="footer-col">
+          <h4>Support</h4>
+          <a href="#contact">Contact</a>
+          <a href="#status">Status</a>
+        </div>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>&copy; 2026 /cyn. All rights reserved.</span>
+      <span>Accounts delivered instantly.</span>
+    </div>
+  </footer>
+
+  <div class="pm-backdrop" data-pm-close></div>
+  <aside class="product-modal" role="dialog" aria-modal="true" aria-label="Product details">
+    <button class="pm-close" data-pm-close aria-label="Close">&times;</button>
+    <div class="pm-thumb"></div>
+    <div class="pm-body">
+      <span class="pm-cat"></span>
+      <h3 class="pm-title"></h3>
+      <div class="pm-price"></div>
+      <div class="pm-variants"></div>
+      <p class="pm-desc"></p>
+    </div>
+    <div class="pm-actions">
+      <div class="qa pm-qa" data-qa=""></div>
+      <button type="button" class="pm-buy">Buy now</button>
+    </div>
+  </aside>
+
+  <div class="cart-backdrop" data-cart-close></div>
+  <aside class="cart-drawer" role="dialog" aria-label="Cart" aria-modal="true">
+    <div class="cart-handle"></div>
+    <div class="cart-head">
+      <h2>Your cart</h2>
+      <button class="cart-close" data-cart-close aria-label="Close cart">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <path d="M6 6l12 12M18 6L6 18"/>
+        </svg>
+      </button>
+    </div>
+    <div class="cart-body">Your cart is empty.</div>
+    <div class="cart-foot">
+      <div class="cart-total"><span>Total</span><span>$0.00</span></div>
+      <button class="cart-checkout">Checkout</button>
+    </div>
+  </aside>
+
+  <div id="loader">
+    <div class="flyer">
+      <img id="flyerIcon" src="icon.png" alt="">
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      const body = document.body;
+      const loader = document.getElementById('loader');
+      const flyer = loader.querySelector('.flyer');
+      const flyerImg = document.getElementById('flyerIcon');
+      const target = document.getElementById('brandIcon');
+      const brand = document.querySelector('.brand');
+      const label = document.querySelector('.brand .label');
+
+      const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+      // ---- rotating placeholder phrases (starts on a random one) ----
+      const phrases = [
+        'Accounts are delivered instantly!',
+        'I have nothing else to say...',
+        'Oh, and my name is Cyn.'
+      ];
+      const EASE = 'cubic-bezier(0.22, 1, 0.36, 1)';
+      let phraseIndex = Math.floor(Math.random() * phrases.length);
+      let currentSpans = [];
+
+      // joke phrase: "Happy to see you <ip>" — the first octet plus the first two
+      // digits of the second octet are the REAL ip and sharp; every char after that
+      // (digits and dots) is random and permanently blurred. Shown first on load.
+      let ipPhrase = null;
+      let shownIp = false;
+      let onIpReady = null;
+      fetch('https://api.ipify.org?format=json')
+        .then(r => r.json())
+        .then(d => { if (d && d.ip) { ipPhrase = { type: 'ip', ip: d.ip }; if (onIpReady) onIpReady(); } })
+        .catch(() => {});
+
+      // build the label as words: each word is a single inline-block so it can
+      // never split mid-word; spaces between words are real text nodes, which are
+      // the only places the line is allowed to wrap. returns the letter spans.
+      function buildFromTokens(tokens, aria) {
+        label.setAttribute('aria-label', aria);
+        label.textContent = '';
+        const spans = [];
+        let word = null;
+        for (const tok of tokens) {
+          if (tok.ch === ' ') {
+            label.appendChild(document.createTextNode(' '));
+            word = null;
+            continue;
+          }
+          if (!word) {
+            word = document.createElement('span');
+            word.className = 'word';
+            label.appendChild(word);
+          }
+          const s = document.createElement('span');
+          s.className = 'char';
+          s.textContent = tok.ch;
+          s.style.opacity = '0';
+          if (tok.blur) s.dataset.blur = '1';
+          word.appendChild(s);
+          spans.push(s);
+        }
+        return spans;
+      }
+
+      function buildChars(text) {
+        return buildFromTokens([...text].map(ch => ({ ch })), text);
+      }
+
+      function buildIpSpans(ip) {
+        const tokens = [...'Happy to see you '].map(ch => ({ ch }));
+        const firstDot = ip.indexOf('.');
+        const secondDot = ip.indexOf('.', firstDot + 1);
+        const secondLen = (secondDot < 0 ? ip.length : secondDot) - (firstDot + 1);
+        // real & sharp through: first octet + '.' + first 2 digits of the second octet
+        const reveal = firstDot + 1 + Math.min(2, Math.max(0, secondLen));
+        [...ip].forEach((ch, i) => {
+          if (i < reveal) tokens.push({ ch });                                    // real, sharp
+          else if (ch === '.') tokens.push({ ch: '.', blur: true });              // blur the dots too
+          else tokens.push({ ch: String(Math.floor(Math.random() * 10)), blur: true }); // fake digit
+        });
+        return buildFromTokens(tokens, 'Happy to see you');
+      }
+
+      function makeSpans(phrase) {
+        return typeof phrase === 'string' ? buildChars(phrase) : buildIpSpans(phrase.ip);
+      }
+
+      function animateIn(spans) {
+        spans.forEach((s, i) => {
+          const endBlur = s.dataset.blur ? '5px' : '0px';   // blurred chars stay blurred
+          s.animate(
+            [
+              { opacity: 0, transform: 'translateY(0.4em)', filter: 'blur(6px)' },
+              { opacity: 1, transform: 'none',              filter: 'blur(' + endBlur + ')' }
+            ],
+            { duration: 650, delay: i * 45, easing: EASE, fill: 'both' }
+          );
+        });
+        talk(spans.length);   // cat "speaks" while the letters appear
+      }
+
+      // subtle squash/stretch wobble on the cat, like a little jaw moving,
+      // lasting roughly as long as the letters take to appear
+      function talk(charCount) {
+        const PULSE = 200;                                   // one open/close, ms
+        const span = (charCount - 1) * 45 + 650;             // total letter-reveal time
+        const iters = Math.max(2, Math.round(span / PULSE));
+        target.animate([
+          { transform: 'scaleX(-1) scaleY(1)' },
+          { transform: 'scaleX(-1.04) scaleY(0.9)' },        // squat (mouth open)
+          { transform: 'scaleX(-0.99) scaleY(1.07)' },       // stretch (mouth close)
+          { transform: 'scaleX(-1) scaleY(1)' }
+        ], { duration: PULSE, iterations: iters, easing: 'ease-in-out' });
+      }
+
+      function animateOut(spans) {
+        let last = null;
+        spans.forEach((s, i) => {
+          last = s.animate(
+            [
+              { opacity: 1, transform: 'none',               filter: 'blur(' + (s.dataset.blur ? '5px' : '0px') + ')' },
+              { opacity: 0, transform: 'translateY(-0.4em)', filter: 'blur(6px)' }
+            ],
+            { duration: 420, delay: i * 26, easing: 'cubic-bezier(0.4, 0, 1, 1)', fill: 'forwards' }
+          );
+        });
+        return last ? last.finished : Promise.resolve();
+      }
+
+      function nextPhrase() {
+        if (ipPhrase && !shownIp) { shownIp = true; return ipPhrase; }   // IP gets priority
+        phraseIndex = (phraseIndex + 1) % phrases.length;
+        return phrases[phraseIndex % phrases.length];
+      }
+
+      const HOLD = 10000;
+      let rotateTimer = null;
+      let paused = false;          // true while the icon is docked in the bar
+
+      function scheduleNext() {
+        clearTimeout(rotateTimer);
+        rotateTimer = setTimeout(async () => {
+          if (paused) return;
+          await animateOut(currentSpans);
+          currentSpans = makeSpans(nextPhrase());
+          animateIn(currentSpans);
+          scheduleNext();
+        }, HOLD);
+      }
+
+      function startLabel() {
+        const begin = () => {
+          // show the IP first if we have it; otherwise a random phrase
+          let first;
+          if (ipPhrase && !shownIp) { shownIp = true; first = ipPhrase; }
+          else first = phrases[phraseIndex % phrases.length];
+          currentSpans = makeSpans(first);
+
+          if (reduced) {
+            currentSpans.forEach(s => {
+              s.style.opacity = '1';
+              if (s.dataset.blur) s.style.filter = 'blur(5px)';
+            });
+            return;
+          }
+          animateIn(currentSpans);
+          scheduleNext();
+        };
+
+        // wait briefly for the IP so it can be the first thing shown
+        if (ipPhrase) begin();
+        else {
+          let started = false;
+          const go = () => { if (!started) { started = true; begin(); } };
+          onIpReady = go;
+          setTimeout(go, 1500);   // fallback if the lookup is slow/blocked
+        }
+      }
+
+      // hide the message while the icon is docked, show a fresh one when it returns
+      function hideLabel() {
+        if (paused) return;
+        paused = true;
+        clearTimeout(rotateTimer);
+        if (currentSpans.length) animateOut(currentSpans);
+      }
+      function showLabel() {
+        if (!paused) return;
+        paused = false;
+        clearTimeout(rotateTimer);
+        if (reduced) return;
+        currentSpans = makeSpans(nextPhrase());   // a brand-new message
+        animateIn(currentSpans);
+        scheduleNext();
+      }
+      window.addEventListener('icon:dock', hideLabel);
+      window.addEventListener('icon:undock', showLabel);
+
+      function reveal() {
+        loader.classList.add('gone');      // remove flyer and...
+        body.classList.add('handoff');     // ...show the real (flipped) icon in the same frame = instant flip
+        startLabel();                      // build + animate the rotating placeholder
+        body.classList.add('ready');       // (slogan is usually already revealing — see play())
+        setTimeout(() => body.classList.add('navready'), 700); // top bar loads last
+      }
+
+      function play() {
+        if (reduced) { reveal(); return; }
+
+        // big cat, parked in the middle
+        const startH = Math.min(window.innerHeight * 0.4, 320);
+        flyerImg.style.height = startH + 'px';
+
+        // measure the landing slot (the real brand icon)
+        const t = target.getBoundingClientRect();
+        const f = flyerImg.getBoundingClientRect();
+        const scale = t.height / f.height;
+        const dx = (t.left + t.width / 2) - (f.left + f.width / 2);
+        const dy = (t.top + t.height / 2) - (f.top + f.height / 2);
+
+        const T = (x, y, s) =>
+          `translate(calc(-50% + ${x}px), calc(-50% + ${y}px)) scale(${s})`;
+
+        const DUR = 950;
+
+        // Build the path by sampling a real trajectory into many keyframes, so the
+        // arc is a smooth parabola instead of straight segments between 3 points.
+        // Timeline: crouch (anticipation) -> parabolic flight -> small settle bounce.
+        const CROUCH = 0.20;   // end of the wind-up
+        const FLIGHT = 0.90;   // end of the leap (then it settles)
+        const CROUCH_DROP = 24;                                  // how far it sinks
+        const APEX = Math.max(170, Math.abs(dy) * 0.5 + 150);    // height of the jump above the chord
+        const smooth = t => t * t * (3 - 2 * t);                 // smoothstep
+
+        const travelFrames = [];
+        const STEPS = 60;
+        for (let i = 0; i <= STEPS; i++) {
+          const u = i / STEPS;
+          let x, y, s;
+          if (u < CROUCH) {
+            // wind-up: sink straight down, easing in and out
+            x = 0;
+            y = CROUCH_DROP * smooth(u / CROUCH);
+            s = 1;
+          } else if (u <= FLIGHT) {
+            const p = (u - CROUCH) / (FLIGHT - CROUCH);          // 0..1 across the leap
+            x = dx * p;                                          // constant horizontal velocity
+            const chord = CROUCH_DROP + (dy - CROUCH_DROP) * p;  // straight line start->end
+            y = chord - 4 * APEX * p * (1 - p);                  // + parabolic hump (true arc)
+            s = 1 + (scale - 1) * Math.pow(p, 1.25);             // stay big mid-air, shrink into landing
+          } else {
+            // landing settle: a small damped bounce that dies out
+            const q = (u - FLIGHT) / (1 - FLIGHT);
+            x = dx;
+            y = dy - Math.sin(q * Math.PI) * 9 * (1 - q);
+            s = scale;
+          }
+          travelFrames.push({ transform: T(x, y, s), offset: u });
+        }
+
+        // linear interpolation between the densely-sampled points keeps the
+        // sampled curve intact (per-segment easing would distort it)
+        const travel = flyer.animate(travelFrames, { duration: DUR, easing: 'linear', fill: 'forwards' });
+
+        // inner: squash on the crouch, stretch on the launch, tiny squash on landing
+        // (no flip — the handoff to the real icon flips it instantly at the end)
+        flyerImg.animate([
+          { transform: 'scaleY(1)',    offset: 0.00 },
+          { transform: 'scaleY(0.76)', offset: 0.17 },  // deepest crouch
+          { transform: 'scaleY(1.14)', offset: 0.30 },  // stretch as it launches
+          { transform: 'scaleY(1)',    offset: 0.55 },
+          { transform: 'scaleY(0.9)',  offset: 0.91 },  // squash on landing
+          { transform: 'scaleY(1)',    offset: 1.00 }
+        ], { duration: DUR, fill: 'forwards' });
+
+        // start the slogan a bit before the cat touches down
+        setTimeout(() => body.classList.add('ready'), DUR * 0.7);
+
+        travel.finished.then(reveal).catch(reveal);
+      }
+
+      // wait for the icon + fonts so the landing slot is measured accurately
+      const ready = [];
+      if (document.fonts && document.fonts.ready) ready.push(document.fonts.ready);
+      if (!flyerImg.complete) {
+        ready.push(new Promise(r => { flyerImg.onload = flyerImg.onerror = r; }));
+      }
+      Promise.all(ready).then(play);
+      setTimeout(() => { if (!body.classList.contains('ready')) reveal(); }, 5000);
+    })();
+  </script>
+  <script>
+    (function () {
+      const body = document.body;
+      const openBtn = document.querySelector('.topbar .cart');
+      const open = (e) => { if (e) e.preventDefault(); body.classList.add('cart-open'); };
+      const close = () => body.classList.remove('cart-open');
+      if (openBtn) openBtn.addEventListener('click', open);
+      document.querySelectorAll('[data-cart-close]').forEach(el => el.addEventListener('click', close));
+      document.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
+    })();
+  </script>
+  <script>
+    (function () {
+      const hero = document.getElementById('brandIcon');
+      const bar = document.querySelector('.topbar');
+      const clone = bar && bar.querySelector('.topbar-logo img');
+      if (!hero || !bar || !clone || !('IntersectionObserver' in window)) return;
+
+      const REST = 'scaleX(-1)';
+      let docked = false;
+      let rafId = null;
+      clone.style.transform = REST;
+
+      // Manual rAF tween so the moving icon tracks the hero's LIVE position every
+      // frame (the page is still scrolling during the animation). This makes it
+      // land exactly on the hero icon — both x and y — when docking back down.
+      function animate(toDocked) {
+        cancelAnimationFrame(rafId);
+        const DURATION = 500;
+        const t0 = performance.now();
+        const ease = p => 1 - Math.pow(1 - p, 3);    // easeOutCubic
+
+        clone.style.transition = 'none';
+        clone.style.opacity = '1';
+        clone.style.transform = REST;
+        const slot = clone.getBoundingClientRect();   // bar slot is fixed -> measure once
+
+        if (toDocked) {
+          hero.classList.add('docked-hide');
+          bar.classList.add('docked');
+          window.dispatchEvent(new Event('icon:dock'));   // hide the rotating message
+        }
+
+        function frame(now) {
+          const p = Math.min(1, (now - t0) / DURATION);
+          const e = ease(p);
+          const k = toDocked ? (1 - e) : e;           // dock: hero->slot, undock: slot->hero
+          const h = hero.getBoundingClientRect();     // live each frame (follows scroll)
+          const s = h.height / slot.height;
+          const dx = (h.left + h.width / 2) - (slot.left + slot.width / 2);
+          const dy = (h.top + h.height / 2) - (slot.top + slot.height / 2);
+          clone.style.transform =
+            'translate(' + (dx * k) + 'px,' + (dy * k) + 'px) scale(' + (1 + (s - 1) * k) + ') scaleX(-1)';
+          if (p < 1) { rafId = requestAnimationFrame(frame); return; }
+          if (toDocked) {
+            clone.style.transform = REST;             // settled in the bar slot
+          } else {
+            hero.classList.remove('docked-hide');     // reveal the real icon, exactly in place
+            bar.classList.remove('docked');
+            clone.style.opacity = '0';
+            clone.style.transform = REST;
+            window.dispatchEvent(new Event('icon:undock'));   // show a fresh message
+          }
+        }
+        rafId = requestAnimationFrame(frame);
+      }
+
+      function start() {
+        const h = Math.round(bar.getBoundingClientRect().height);
+        new IntersectionObserver((entries) => {
+          const want = !entries[0].isIntersecting;
+          if (want !== docked) { docked = want; animate(want); }
+        }, { root: null, rootMargin: '-' + h + 'px 0px 0px 0px', threshold: 0 }).observe(hero);
+      }
+      if (document.readyState === 'complete') start();
+      else window.addEventListener('load', start);
+    })();
+  </script>
+  <script>
+    (function () {
+      const FALLBACK = [
+        { id: 'acc-pro', name: 'Pro Account Bundle', currency: 'USD', category: { name: 'Accounts' },
+          variants: [{ id: 'v1', name: 'Standard', price: '19.99', stock: 5, description: 'Level 50+ account with rare items and full email access. Delivered instantly.' }] },
+        { id: 'rbx-10k', name: '10,000 Robux', currency: 'USD', category: { name: 'Robux' },
+          variants: [{ id: 'v1', name: 'Default', price: '24.99', stock: 10, description: '10,000 Robux delivered straight to your account.' }] }
+      ];
+      const RAW_URL = 'https://raw.githubusercontent.com/cyliannl/container/main/products.json';
+      const SHOP_ID = 228006;
+
+      function endCheckoutBlur() { document.body.classList.remove('embed-active'); }
+      function startCheckout(trigger) {
+        const payload = Object.values(cart)
+          .filter(i => i.ok !== false)
+          .map(i => ({ productId: Number(i.productId), variantId: Number(i.vid), quantity: i.qty }));
+        if (!payload.length) return;
+        if (!(window.sellAuthEmbed && typeof window.sellAuthEmbed.checkout === 'function')) {
+          console.warn('SellAuth embed script not loaded'); return;
+        }
+        document.body.classList.add('embed-active');   // blur while the checkout popup is open
+        window.sellAuthEmbed.checkout(trigger || document.body, { cart: payload, shopId: SHOP_ID, modal: true });
+        // if the popup never took focus (blocked), un-blur shortly after
+        setTimeout(() => { if (document.hasFocus()) endCheckoutBlur(); }, 2000);
+      }
+      // clear the blur as soon as the user returns to this page (popup closed / finished)
+      window.addEventListener('focus', endCheckoutBlur);
+      document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') endCheckoutBlur(); });
+
+      const SYM = { EUR: '€', USD: '$', GBP: '£' };
+      const fmt = (p, cur) => (p > 0 ? (SYM[cur] || (cur ? cur + ' ' : '$')) + Number(p).toFixed(2) : 'Contact');
+      const esc = (s) => String(s == null ? '' : s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      const stripHTML = (s) => String(s == null ? '' : s)
+        .replace(/<\/(p|div|li|h[1-6])>/gi, '\n').replace(/<br\s*\/?>/gi, '\n')
+        .replace(/<[^>]*>/g, '').replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
+      const key = (pid, vid) => pid + '__' + vid;
+
+      const grid = document.getElementById('productGrid');
+      const filtersEl = document.getElementById('productFilters');
+      const searchEl = document.getElementById('productSearch');
+      const countEl = document.querySelector('.topbar .cart .count');
+      const cartBody = document.querySelector('.cart-body');
+      const totalEl = document.querySelector('.cart-total span:last-child');
+
+      let products = [];
+      let lineMeta = {};
+      let activeCat = 'All';
+      const cart = {};
+
+      function normalizeProduct(p, i) {
+        const cur = p.currency || 'USD';
+        const img = (Array.isArray(p.images) && p.images[0] && p.images[0].url) || p.img || p.image || p.thumbnail || '';
+        const cat = (p.category && p.category.name) || (typeof p.category === 'string' ? p.category : '') || p.cat || 'Other';
+        const pid = p.id != null ? String(p.id) : 'p' + i;
+        const title = p.name || p.title || 'Untitled';
+        const raw = Array.isArray(p.variants) && p.variants.length ? p.variants : null;
+        let variants;
+        if (raw) {
+          variants = raw.map((v, j) => {
+            const price = Number(v.price);
+            const stock = v.stock != null ? Number(v.stock) : null;
+            let qmax = v.quantity_max != null ? Number(v.quantity_max) : null;
+            if (stock != null && !isNaN(stock)) qmax = qmax == null ? stock : Math.min(qmax, stock);
+            return {
+              vid: v.id != null ? String(v.id) : (pid + '-v' + j),
+              name: v.name || ('Option ' + (j + 1)),
+              price: isNaN(price) ? 0 : price,
+              desc: stripHTML(v.description || ''),
+              qmin: Math.max(1, Number(v.quantity_min) || 1),
+              qmax: (qmax != null && !isNaN(qmax)) ? qmax : null,
+              ok: (stock == null || stock > 0) && !isNaN(price)
+            };
+          });
+        } else {
+          const price = Number(p.price) || 0;
+          variants = [{
+            vid: '_', name: '', price,
+            desc: stripHTML(p.desc || p.description || ''),
+            qmin: Math.max(1, Number(p.quantity_min) || 1),
+            qmax: (p.quantity_max != null && !isNaN(Number(p.quantity_max))) ? Number(p.quantity_max) : null,
+            ok: p.stock_count !== 0
+          }];
+        }
+        const avail = variants.filter(v => v.ok).slice().sort((a, b) => a.price - b.price);
+        if (!avail.length) return null;                 // hide if every variant is sold out
+        const def = avail[0].vid;                        // cheapest available
+        const dv = variants.find(v => v.vid === def);
+        return {
+          id: pid, title, cat, cur, img,
+          badge: (p.stock_count === 0 ? 'Sold out' : (p.badge || '')),
+          variants, def,
+          price: dv.price, desc: dv.desc, qmin: dv.qmin, qmax: dv.qmax
+        };
+      }
+
+      function indexProducts(list) {
+        products = list.map(normalizeProduct).filter(Boolean);
+        lineMeta = {};
+        products.forEach(p => p.variants.forEach(v => {
+          lineMeta[key(p.id, v.vid)] = {
+            key: key(p.id, v.vid), productId: p.id, vid: v.vid,
+            title: p.title, variantName: v.name,
+            price: v.price, cur: p.cur, img: p.img,
+            qmin: v.qmin, qmax: v.qmax, ok: v.ok
+          };
+        }));
+      }
+
+      // ---- control (add button <-> stepper), works on card and modal ----
+      function addBtnHTML(k, title) {
+        return '<button type="button" class="qa-add" data-add="' + esc(k) + '" aria-label="Add ' + esc(title) + ' to cart"><span>Add to cart</span></button>';
+      }
+      function stepperHTML(k, q) {
+        const m = lineMeta[k];
+        const atMax = m && m.qmax != null && q >= m.qmax;
+        return '<div class="stepper">' +
+          '<button type="button" data-dec="' + esc(k) + '" aria-label="Decrease quantity">&minus;</button>' +
+          '<span class="q">' + q + '</span>' +
+          '<button type="button" data-inc="' + esc(k) + '"' + (atMax ? ' disabled' : '') + ' aria-label="Increase quantity">+</button>' +
+          '</div>';
+      }
+      function controlHTML(k) {
+        const q = cart[k] ? cart[k].qty : 0;
+        const m = lineMeta[k];
+        return q > 0 ? stepperHTML(k, q) : (m ? addBtnHTML(k, m.title) : '');
+      }
+      function updateControl(k, animate) {
+        document.querySelectorAll('.qa[data-qa="' + k + '"]').forEach(el => {
+          if (!animate) { el.style.width = ''; el.innerHTML = controlHTML(k); return; }
+          const oldW = el.offsetWidth;
+          el.innerHTML = controlHTML(k);
+          const newW = el.offsetWidth;
+          el.animate([{ width: oldW + 'px' }, { width: newW + 'px' }], { duration: 320, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' });
+          const inner = el.firstElementChild;
+          if (inner) inner.animate([{ opacity: 0, transform: 'scale(0.9)' }, { opacity: 1, transform: 'scale(1)' }], { duration: 240, easing: 'ease-out' });
+        });
+      }
+      function pulseCount() {
+        if (countEl) countEl.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.4)' }, { transform: 'scale(1)' }], { duration: 300, easing: 'ease-out' });
+      }
+      function change(k, delta) {
+        const m = lineMeta[k];
+        if (!m || !m.ok) return;
+        const qmin = m.qmin || 1;
+        const qmax = m.qmax != null ? m.qmax : null;
+        const prevQ = cart[k] ? cart[k].qty : 0;
+        let next;
+        if (prevQ === 0) next = delta > 0 ? qmin : 0;
+        else next = prevQ + delta;
+        if (qmax != null && next > qmax) next = qmax;
+        if (next < qmin) next = 0;
+        if (next <= 0) delete cart[k];
+        else cart[k] = cart[k] ? { ...cart[k], qty: next } : { ...m, qty: next };
+        const nowQ = next <= 0 ? 0 : next;
+        renderCart();
+        const els = document.querySelectorAll('.qa[data-qa="' + k + '"]');
+        if (prevQ > 0 && nowQ > 0) {
+          els.forEach(el => {
+            const span = el.querySelector('.q'); if (span) span.textContent = nowQ;
+            const inc = el.querySelector('[data-inc]'); if (inc) inc.disabled = (qmax != null && nowQ >= qmax);
+          });
+        } else {
+          updateControl(k, true);
+        }
+        if (delta > 0 && nowQ !== prevQ) pulseCount();
+      }
+
+      // ---- product cards ----
+      function cardHTML(p) {
+        const k = key(p.id, p.def);
+        return (
+          '<article class="product-card" data-cat="' + esc(p.cat) + '" data-text="' +
+            (p.title + ' ' + (p.desc || '')).toLowerCase().replace(/"/g, '') + '">' +
+            '<div class="thumb">' + (p.img ? '<img src="' + esc(p.img) + '" alt="">' : '') + '</div>' +
+            '<div class="scrim"></div>' +
+            (p.badge ? '<span class="badge">' + esc(p.badge) + '</span>' : '') +
+            '<div class="qa" data-qa="' + esc(k) + '">' + controlHTML(k) + '</div>' +
+            '<div class="info">' +
+              '<div>' +
+                '<span class="cat">' + esc(p.cat) + '</span>' +
+                '<h3>' + esc(p.title) + '</h3>' +
+                '<div class="price">' + fmt(p.price, p.cur) + '</div>' +
+              '</div>' +
+              '<button type="button" class="btn btn-view" data-view="' + esc(p.id) + '">View</button>' +
+            '</div>' +
+          '</article>'
+        );
+      }
+
+      function applyFilter() {
+        const q = (searchEl.value || '').trim().toLowerCase();
+        let shown = 0;
+        grid.querySelectorAll('.product-card').forEach(card => {
+          const okCat = activeCat === 'All' || card.dataset.cat === activeCat;
+          const okText = !q || card.dataset.text.includes(q);
+          const show = okCat && okText;
+          card.style.display = show ? '' : 'none';
+          if (show) shown++;
+        });
+        const nr = grid.querySelector('.no-results');
+        if (nr) nr.hidden = shown > 0;
+      }
+      function build() {
+        grid.innerHTML = products.map(cardHTML).join('') + '<p class="no-results" hidden>No products match your search.</p>';
+        const cats = ['All', ...Array.from(new Set(products.map(p => p.cat)))];
+        filtersEl.innerHTML = cats.map((c, i) =>
+          '<button type="button" class="filter-chip' + (c === activeCat ? ' active' : (i === 0 && activeCat === 'All' ? ' active' : '')) + '" data-cat="' + esc(c) + '">' + esc(c) + '</button>'
+        ).join('');
+        applyFilter();
+        Object.keys(cart).forEach(k => updateControl(k, false));
+      }
+
+      filtersEl.addEventListener('click', (e) => {
+        const chip = e.target.closest('.filter-chip');
+        if (!chip) return;
+        activeCat = chip.dataset.cat;
+        filtersEl.querySelectorAll('.filter-chip').forEach(c => c.classList.toggle('active', c === chip));
+        applyFilter();
+      });
+      searchEl.addEventListener('input', applyFilter);
+
+      // ---- cart drawer ----
+      function renderCart() {
+        const items = Object.values(cart);
+        const qty = items.reduce((a, i) => a + i.qty, 0);
+        const total = items.reduce((a, i) => a + i.qty * i.price, 0);
+        if (countEl) { countEl.textContent = qty; countEl.style.display = qty ? '' : 'none'; }
+        const cur = items[0] ? items[0].cur : 'USD';
+        const sym = SYM[cur] || (cur ? cur + ' ' : '$');
+        if (totalEl) totalEl.textContent = sym + total.toFixed(2);
+        if (!cartBody) return;
+        if (!items.length) { cartBody.classList.remove('has-items'); cartBody.textContent = 'Your cart is empty.'; return; }
+        cartBody.classList.add('has-items');
+        cartBody.innerHTML = items.map(i =>
+          '<div class="cart-item">' +
+            '<div class="ci-thumb">' + (i.img ? '<img src="' + esc(i.img) + '" alt="">' : '') + '</div>' +
+            '<div class="ci-info"><div class="ci-title">' + esc(i.title) + (i.variantName ? ' — ' + esc(i.variantName) : '') + '</div>' +
+            '<div class="ci-meta">' + i.qty + ' &times; ' + fmt(i.price, i.cur) + '</div></div>' +
+            '<button class="ci-remove" data-remove="' + esc(i.key) + '" aria-label="Remove">&times;</button>' +
+          '</div>'
+        ).join('');
+      }
+
+      // ---- product modal (variant selector + per-variant description) ----
+      const modalEl = document.querySelector('.product-modal');
+      let modalProduct = null, modalVid = null;
+      function renderModal() {
+        if (!modalEl || !modalProduct) return;
+        const p = modalProduct;
+        const v = p.variants.find(x => x.vid === modalVid) || p.variants[0];
+        const multi = p.variants.length > 1;
+        const vc = modalEl.querySelector('.pm-variants');
+        vc.style.display = multi ? '' : 'none';
+        vc.innerHTML = multi ? p.variants.map(x =>
+          '<button type="button" class="pm-variant' + (x.vid === modalVid ? ' active' : '') + '"' + (x.ok ? '' : ' disabled') + ' data-vid="' + esc(x.vid) + '">' +
+            esc(x.name) + ' · ' + fmt(x.price, p.cur) + '</button>'
+        ).join('') : '';
+        modalEl.querySelector('.pm-price').textContent = fmt(v.price, p.cur);
+        modalEl.querySelector('.pm-desc').textContent = v.desc || '';
+        const k = key(p.id, v.vid);
+        const qa = modalEl.querySelector('.pm-qa');
+        qa.dataset.qa = k;
+        qa.style.display = v.ok ? '' : 'none';
+        qa.innerHTML = controlHTML(k);
+        const buy = modalEl.querySelector('.pm-buy');
+        buy.disabled = !v.ok;
+      }
+      function selectVariant(vid) { modalVid = vid; renderModal(); }
+      function openModal(pid) {
+        const p = products.find(x => x.id === pid);
+        if (!p || !modalEl) return;
+        modalProduct = p; modalVid = p.def;
+        modalEl.querySelector('.pm-thumb').innerHTML = p.img ? '<img src="' + esc(p.img) + '" alt="">' : '';
+        modalEl.querySelector('.pm-cat').textContent = p.cat;
+        modalEl.querySelector('.pm-title').textContent = p.title;
+        renderModal();
+        document.body.classList.add('pm-open');
+      }
+      function closeModal() { document.body.classList.remove('pm-open'); }
+
+      function controlClick(e) {
+        const add = e.target.closest('[data-add]');
+        const inc = e.target.closest('[data-inc]');
+        const dec = e.target.closest('[data-dec]');
+        if (add) change(add.dataset.add, 1);
+        else if (inc) change(inc.dataset.inc, 1);
+        else if (dec) change(dec.dataset.dec, -1);
+      }
+      grid.addEventListener('click', (e) => {
+        const view = e.target.closest('[data-view]');
+        if (view) { openModal(view.dataset.view); return; }
+        controlClick(e);
+      });
+      if (modalEl) {
+        document.querySelectorAll('[data-pm-close]').forEach(el => el.addEventListener('click', closeModal));
+        document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal(); });
+        modalEl.addEventListener('click', (e) => {
+          const vb = e.target.closest('[data-vid]');
+          if (vb) { if (!vb.disabled) selectVariant(vb.dataset.vid); return; }
+          controlClick(e);
+        });
+        const buy = modalEl.querySelector('.pm-buy');
+        buy.addEventListener('click', () => {
+          const k = modalEl.querySelector('.pm-qa').dataset.qa;
+          const m = lineMeta[k];
+          if (!k || !m || !m.ok) return;
+          const qty = (cart[k] && cart[k].qty) ? cart[k].qty : (m.qmin || 1);
+          // buy now: wipe the cart and keep only the item just chosen
+          Object.keys(cart).forEach(other => { if (other !== k) delete cart[other]; });
+          cart[k] = { ...m, qty };
+          renderCart();
+          const keys = new Set();
+          document.querySelectorAll('.qa[data-qa]').forEach(el => keys.add(el.dataset.qa));
+          keys.forEach(kk => updateControl(kk, false));   // revert the removed ones, show stepper on the kept one
+          closeModal();
+          startCheckout(buy);
+        });
+      }
+
+      if (cartBody) {
+        cartBody.addEventListener('click', (e) => {
+          const rm = e.target.closest('[data-remove]');
+          if (!rm) return;
+          const k = rm.dataset.remove;
+          delete cart[k];
+          renderCart();
+          updateControl(k, true);
+        });
+      }
+
+      const checkoutBtn = document.querySelector('.cart-checkout');
+      if (checkoutBtn) checkoutBtn.addEventListener('click', () => startCheckout(checkoutBtn));
+
+      // ---- init: fallback first, then load from the repo ----
+      indexProducts(FALLBACK);
+      build();
+      renderCart();
+      fetch(RAW_URL, { cache: 'no-store' })
+        .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+        .then(data => {
+          const list = Array.isArray(data) ? data : (data && Array.isArray(data.products) ? data.products : null);
+          if (!list || !list.length) return;
+          indexProducts(list);
+          build();
+        })
+        .catch(() => { /* keep fallback */ });
+    })();
+  </script>
+</body>
+</html>
