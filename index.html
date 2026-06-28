@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>/cyn</title>
   <link rel="icon" href="favicon.ico" sizes="any">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -132,6 +132,32 @@
     body.ready .slogan .line:nth-child(2) .line-inner {
       transition-delay: 0.13s;   /* second line follows the first */
     }
+
+    .hero-cta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.8rem;
+      margin-top: clamp(1.6rem, 4vw, 2.6rem);
+      font-family: "Inter Tight", Helvetica, Arial, sans-serif;
+      opacity: 0;
+      transform: translateY(14px);
+      transition: opacity 0.7s ease, transform 0.7s ease;
+      transition-delay: 0.32s;   /* arrives just after the slogan */
+    }
+    body.ready .hero-cta { opacity: 1; transform: none; }
+    .hero-cta a {
+      font-weight: 600;
+      font-size: clamp(0.95rem, 1.5vw, 1.05rem);
+      padding: 0.85rem 1.7rem;
+      border-radius: 999px;
+      text-decoration: none;
+      border: 1.5px solid #000;
+      transition: all 0.2s ease;
+    }
+    .hero-cta .primary { background: #000; color: #fff; }
+    .hero-cta .primary:hover { opacity: 0.85; }
+    .hero-cta .secondary { background: transparent; color: #000; }
+    .hero-cta .secondary:hover { background: #000; color: #fff; }
 
     /* ---- top bar ---- */
     .topbar {
@@ -779,10 +805,7 @@
       }
     }
 
-    @media (prefers-reduced-motion: reduce) {
-      .brand .label .char { transition: none; }
-      .slogan .line-inner { transition: none; }
-    }
+
   </style>
   <script src="https://sellauth.com/assets/js/sellauth-embed-2.js"></script>
   <script>
@@ -813,6 +836,10 @@
       <span class="line"><span class="line-inner">Online services</span></span>
       <span class="line"><span class="line-inner">done right</span></span>
     </h1>
+    <div class="hero-cta">
+      <a class="primary" href="#shop">Shop now</a>
+      <a class="secondary" href="https://discord.gg/" target="_blank" rel="noopener">Join Discord</a>
+    </div>
   </main>
 
   <section class="cards" id="about">
@@ -925,7 +952,7 @@
       const brand = document.querySelector('.brand');
       const label = document.querySelector('.brand .label');
 
-      const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const reduced = false;   // intentionally play the intro even if reduce-motion is on
 
       // ---- rotating placeholder phrases (starts on a random one) ----
       const phrases = [
