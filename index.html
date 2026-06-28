@@ -576,6 +576,18 @@
     /* lock the page so only the embed scrolls */
     body.embed-active { overflow: hidden; touch-action: none; }
 
+    /* blur + lock the page behind the product modal */
+    body.pm-open .topbar,
+    body.pm-open .hero,
+    body.pm-open .cards,
+    body.pm-open .products,
+    body.pm-open .site-footer,
+    body.pm-open .cart-drawer {
+      filter: blur(8px);
+      transition: filter 0.3s ease;
+    }
+    body.pm-open { position: fixed; left: 0; right: 0; width: 100%; overflow: hidden; touch-action: none; }
+
     /* ---- product detail modal ---- */
     .pm-backdrop {
       position: fixed; inset: 0; z-index: 30;
@@ -638,10 +650,11 @@
       border-top: 1px solid rgba(0, 0, 0, 0.08);
       background: #fff;
     }
-    .pm-qa { box-shadow: none; border: 1px solid rgba(0, 0, 0, 0.25); flex: none; }
+    .pm-qa { box-shadow: none; border: 1px solid rgba(0, 0, 0, 0.25); flex: none; height: 48px; }
+    .pm-qa .stepper button { width: 40px; }
     .pm-buy {
-      flex: 1; height: 36px; padding: 0 1rem; border: none; border-radius: 999px;
-      background: #000; color: #fff; font: inherit; font-weight: 600; cursor: pointer;
+      flex: 1; height: 48px; padding: 0 1.2rem; border: none; border-radius: 999px;
+      background: #000; color: #fff; font: inherit; font-size: 0.95rem; font-weight: 600; cursor: pointer;
       transition: opacity 0.2s ease;
     }
     .pm-buy:hover { opacity: 0.85; }
@@ -1593,7 +1606,7 @@
 
       // ---- product modal (variant selector + per-variant description) ----
       const modalEl = document.querySelector('.product-modal');
-      let modalProduct = null, modalVid = null;
+      let modalProduct = null, modalVid = null, pmScrollY = 0;
       function renderModal() {
         if (!modalEl || !modalProduct) return;
         const p = modalProduct;
@@ -1624,9 +1637,15 @@
         modalEl.querySelector('.pm-cat').textContent = p.cat;
         modalEl.querySelector('.pm-title').textContent = p.title;
         renderModal();
+        pmScrollY = window.scrollY;
         document.body.classList.add('pm-open');
+        document.body.style.top = (-pmScrollY) + 'px';   // keep the page where it was
       }
-      function closeModal() { document.body.classList.remove('pm-open'); }
+      function closeModal() {
+        document.body.classList.remove('pm-open');
+        document.body.style.top = '';
+        window.scrollTo(0, pmScrollY);
+      }
 
       function controlClick(e) {
         const add = e.target.closest('[data-add]');
