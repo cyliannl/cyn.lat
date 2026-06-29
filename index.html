@@ -60,12 +60,13 @@
     }
 
     .hero {
-      min-height: 100vh;
+      min-height: 85vh;
       display: flex;
       flex-direction: column;
-      justify-content: center;
+      justify-content: flex-end;
       align-items: flex-start;
       padding: clamp(2rem, 8vw, 8rem);
+      padding-bottom: clamp(1.5rem, 3vw, 2.5rem);
       text-align: left;
     }
 
@@ -109,30 +110,33 @@
       transform-origin: top left;
     }
 
-    /* each line rises up from behind a clip mask, with a soft blur + slight zoom */
+    /* each line rises up from behind a clip mask. the mask gets generous
+       padding (cancelled with equal negative margins so layout is unchanged),
+       which keeps ascenders, descenders and the soft blur from being clipped
+       at the edges as the line animates in — a clean, Apple-style reveal */
     .slogan .line {
       display: block;
       overflow: hidden;
-      padding-bottom: 0.12em;   /* room for descenders inside the mask */
+      padding: 0.18em 0.06em 0.22em;
+      margin: -0.18em -0.06em -0.22em;
     }
     .slogan .line-inner {
       display: block;
-      transform: translateY(115%) scale(1.04);
-      filter: blur(5px);
+      transform: translate3d(0, 110%, 0);   /* translate3d = own GPU layer, no jank */
       opacity: 0;
-      transform-origin: left center;
+      transform-origin: left bottom;
+      backface-visibility: hidden;
+      will-change: transform, opacity;
       transition:
-        transform 0.95s cubic-bezier(0.16, 1, 0.3, 1),
-        filter 0.8s ease,
-        opacity 0.8s ease;
+        transform 0.85s cubic-bezier(0.22, 1, 0.36, 1),
+        opacity 0.55s ease;
     }
     body.ready .slogan .line-inner {
-      transform: none;
-      filter: blur(0);
+      transform: translate3d(0, 0, 0);
       opacity: 1;
     }
     body.ready .slogan .line:nth-child(2) .line-inner {
-      transition-delay: 0.13s;   /* second line follows the first */
+      transition-delay: 0.1s;   /* second line follows the first */
     }
 
     .hero-cta {
@@ -160,6 +164,28 @@
     .hero-cta .primary:hover { opacity: 0.85; }
     .hero-cta .secondary { background: transparent; color: #000; }
     .hero-cta .secondary:hover { background: #000; color: #fff; }
+    /* discord icon lives inside the button; hidden on desktop (text shows) */
+    .hero-cta .discord-icon {
+      width: 1.25em;
+      height: 1.25em;
+      display: none;
+      fill: currentColor;
+    }
+
+    /* on mobile the Discord button collapses to a round icon-only button */
+    @media (max-width: 700px) {
+      .hero-cta .secondary {
+        width: 3.1rem;
+        height: 3.1rem;
+        padding: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        flex: none;
+      }
+      .hero-cta .secondary .cta-label { display: none; }
+      .hero-cta .secondary .discord-icon { display: block; }
+    }
 
     /* ---- top bar ---- */
     .topbar {
@@ -279,13 +305,27 @@
     /* ---- cards section (full screen) ---- */
     .cards {
       --gap: clamp(0.75rem, 1.5vw, 1.25rem);
-      height: 100vh;
+      --pad: clamp(1rem, 3vw, 2.5rem);
+      /* the group's height is whichever fits: the viewport height, OR the
+         height that keeps its total width inside the screen. total width =
+         (17/9)·h + (1/9)·gap, so h = (availWidth − gap)·9/17 */
+      --h: min(
+        calc(100vh - 2 * var(--pad)),
+        calc((100vw - 2 * var(--pad) - var(--gap)) * 9 / 17)
+      );
+      /* section wraps the group (+padding) so it never leaves a big empty gap
+         before the shop when the group scales down; caps at one viewport */
+      height: calc(var(--h) + 2 * var(--pad));
+      max-height: 100vh;
       box-sizing: border-box;
-      padding: clamp(1rem, 3vw, 2.5rem);
+      padding: var(--pad);
       display: flex;
       gap: var(--gap);
+      justify-content: center;   /* center the group when width-limited */
+      align-items: flex-start;   /* top-aligned so the cards always peek past the hero */
     }
     .cards .col-left {
+      height: var(--h);
       display: flex;
       flex-direction: column;
       gap: var(--gap);
@@ -297,6 +337,7 @@
     }
     .cards .col-right {
       flex: none;
+      height: var(--h);
     }
     .cards .col-right .card {
       height: 100%;
@@ -308,6 +349,29 @@
       background: #f4f4f4;
       border: 1px solid rgba(0, 0, 0, 0.08);
       overflow: hidden;
+      /* intro state: revealed when the section scrolls into view (see script) */
+      opacity: 0;
+      transform: translateY(40px) scale(0.96);
+      filter: blur(8px);
+      transition:
+        opacity 0.8s ease,
+        transform 0.9s cubic-bezier(0.16, 1, 0.3, 1),
+        filter 0.8s ease;
+    }
+    .cards.in .card {
+      opacity: 1;
+      transform: none;
+      filter: blur(0);
+    }
+    /* stagger the three cards */
+    .cards.in .col-left .card:first-child { transition-delay: 0.05s; }
+    .cards.in .col-right .card            { transition-delay: 0.17s; }
+    .cards.in .col-left .card:last-child  { transition-delay: 0.29s; }
+    .cards .card video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
     }
 
     @media (max-width: 700px) {
@@ -315,16 +379,30 @@
         flex-direction: column;
         height: auto;
         min-height: 100vh;
+        max-height: none;          /* let the stacked cards define the height */
+        justify-content: flex-start;
+      }
+      /* flatten the columns so all three cards become siblings we can reorder */
+      .cards .col-left,
+      .cards .col-right {
+        display: contents;
       }
       .cards .col-left .card {
+        flex: none;                    /* don't let the column flex squeeze the height */
         height: auto;
         width: 100%;                   /* full width, ratio drives height */
+        aspect-ratio: 16 / 9;
       }
       .cards .col-right .card {
+        flex: none;
         height: auto;
         width: 100%;
         aspect-ratio: 1 / 1;
       }
+      /* order: first 16:9, then the square, then the second 16:9 */
+      .cards .col-left .card:first-child { order: 1; }
+      .cards .col-right .card           { order: 2; }
+      .cards .col-left .card:last-child  { order: 3; }
     }
 
     /* ---- products ---- */
@@ -334,18 +412,36 @@
       padding: clamp(3rem, 6vw, 6rem) clamp(1.5rem, 5vw, 4rem);
       font-family: "Inter Tight", Helvetica, Arial, sans-serif;
     }
+    /* shop intro: head, filters and grid rise in when the section scrolls into view */
+    .products .products-head,
+    .products .filters,
+    .products .product-grid {
+      opacity: 0;
+      transform: translate3d(0, 28px, 0);
+      transition:
+        opacity 0.7s ease,
+        transform 0.85s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .products.in .products-head,
+    .products.in .filters,
+    .products.in .product-grid {
+      opacity: 1;
+      transform: none;
+    }
+    .products.in .filters       { transition-delay: 0.1s; }
+    .products.in .product-grid  { transition-delay: 0.2s; }
     .products-head {
       display: flex;
       flex-wrap: wrap;
       align-items: center;
       justify-content: space-between;
       gap: 1rem;
-      margin-bottom: 1.5rem;
+      margin-bottom: 1rem;
     }
     .products-head h2 {
       font-family: "Space Grotesk", Helvetica, Arial, sans-serif;
       font-weight: 700;
-      font-size: clamp(2rem, 5vw, 3.5rem);
+      font-size: clamp(2.4rem, 6vw, 4.25rem);
       letter-spacing: -0.03em;
     }
     .search {
@@ -380,12 +476,12 @@
       display: flex;
       flex-wrap: wrap;
       gap: 0.5rem;
-      margin-bottom: 2rem;
+      margin-bottom: 1.25rem;
     }
     .filter-chip {
       font: inherit;
       font-size: 0.9rem;
-      padding: 0.5rem 1rem;
+      padding: 0.6rem 1rem;
       border-radius: 999px;
       border: 1px solid rgba(0, 0, 0, 0.15);
       background: #fff;
@@ -397,12 +493,20 @@
     .filter-chip.active { background: #000; color: #fff; border-color: #000; }
 
     .product-grid {
+      /* ▼▼ change this number to set the MAX cards per line in the shop ▼▼ */
+      --max-cols: 2;
+      --min-card: 260px;            /* a card never gets narrower than this */
+      --grid-gap: clamp(1rem, 2vw, 1.5rem);
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-      gap: clamp(1rem, 2vw, 1.5rem);
-    }
-    @media (min-width: 1000px) {
-      .product-grid { grid-template-columns: repeat(3, 1fr); }   /* max 3 per line */
+      gap: var(--grid-gap);
+      /* fits as many cards as possible but never more than --max-cols */
+      grid-template-columns: repeat(
+        auto-fill,
+        minmax(
+          max(var(--min-card), (100% - (var(--max-cols) - 1) * var(--grid-gap)) / var(--max-cols)),
+          1fr
+        )
+      );
     }
     .no-results { opacity: 0.5; padding: 2rem 0; grid-column: 1 / -1; }
 
@@ -431,7 +535,7 @@
     }
     /* quick add: instant add-to-cart */
     .qa {
-      height: 36px;
+      height: 44px;
       background: #fff; color: #000;
       border-radius: 999px;
       box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
@@ -441,8 +545,8 @@
     .product-card .qa { position: absolute; top: 0.7rem; right: 0.7rem; z-index: 3; }
     .qa-add {
       height: 100%; border: none; background: none; cursor: pointer;
-      padding: 0 0.95rem;
-      font: inherit; font-size: 0.82rem; font-weight: 600; color: #000;
+      padding: 0 1.2rem;
+      font: inherit; font-size: 0.92rem; font-weight: 600; color: #000;
       display: inline-flex; align-items: center;
       transition: background 0.18s ease;
     }
@@ -468,8 +572,8 @@
     .product-card h3 { font-size: 1.1rem; font-weight: 600; line-height: 1.15; }
     .product-card .price { font-size: 0.95rem; opacity: 0.9; margin-top: 0.15rem; }
     .product-card .btn {
-      font: inherit; font-size: 0.85rem; font-weight: 600;
-      padding: 0.5rem 0.85rem; border-radius: 10px; cursor: pointer; white-space: nowrap;
+      font: inherit; font-size: 0.95rem; font-weight: 600;
+      padding: 0.7rem 1.2rem; border-radius: 12px; cursor: pointer; white-space: nowrap;
       border: 1px solid #fff; background: transparent; color: #fff;
       transition: all 0.2s ease;
     }
@@ -855,17 +959,26 @@
     </h1>
     <div class="hero-cta">
       <a class="primary" href="#shop">Shop now</a>
-      <a class="secondary" href="https://discord.gg/" target="_blank" rel="noopener">Join Discord</a>
+      <a class="secondary" href="https://discord.gg/" target="_blank" rel="noopener" aria-label="Join Discord">
+        <span class="cta-label">Join Discord</span>
+        <svg class="discord-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.317 4.369A19.79 19.79 0 0 0 15.432 3a13.6 13.6 0 0 0-.617 1.27 18.27 18.27 0 0 0-5.63 0A13.2 13.2 0 0 0 8.56 3a19.74 19.74 0 0 0-4.885 1.37C.557 9.046-.32 13.6.12 18.087a19.9 19.9 0 0 0 6.063 3.058c.491-.669.93-1.38 1.304-2.127a12.9 12.9 0 0 1-2.054-.985c.172-.126.34-.257.502-.392a14.2 14.2 0 0 0 12.13 0c.164.14.332.27.502.392-.656.387-1.346.717-2.058.986.375.746.814 1.457 1.305 2.126a19.84 19.84 0 0 0 6.066-3.057c.515-5.207-.879-9.72-3.681-13.723ZM8.02 15.331c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.42 2.157-2.42 1.21 0 2.176 1.096 2.157 2.42 0 1.334-.955 2.419-2.157 2.419Zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.42 2.157-2.42 1.21 0 2.176 1.096 2.157 2.42 0 1.334-.946 2.419-2.157 2.419Z"/></svg>
+      </a>
     </div>
   </main>
 
   <section class="cards" id="about">
     <div class="col-left">
-      <div class="card"></div>
-      <div class="card"></div>
+      <div class="card">
+        <video src="https://media.w3.org/2010/05/sintel/trailer.mp4" autoplay muted loop playsinline webkit-playsinline preload="metadata"></video>
+      </div>
+      <div class="card">
+        <video src="https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4" autoplay muted loop playsinline webkit-playsinline preload="metadata"></video>
+      </div>
     </div>
     <div class="col-right">
-      <div class="card"></div>
+      <div class="card">
+        <video src="https://www.w3schools.com/html/mov_bbb.mp4" autoplay muted loop playsinline webkit-playsinline preload="metadata"></video>
+      </div>
     </div>
   </section>
 
@@ -1250,6 +1363,59 @@
     })();
   </script>
   <script>
+    /* play the cards' staggered intro right after the top bar appears
+       (the bar shows when body gets the .navready class) */
+    (function () {
+      const cards = document.querySelector('.cards');
+      const body = document.body;
+      if (!cards) return;
+      const GAP = 250;   // ms after the bar, so the cards clearly follow it
+      let done = false;
+      const reveal = () => {
+        if (done) return;
+        done = true;
+        setTimeout(() => cards.classList.add('in'), GAP);
+      };
+      if (body.classList.contains('navready')) reveal();
+      else {
+        const mo = new MutationObserver(() => {
+          if (body.classList.contains('navready')) { mo.disconnect(); reveal(); }
+        });
+        mo.observe(body, { attributes: true, attributeFilter: ['class'] });
+        // safety net in case the intro is skipped
+        setTimeout(reveal, 6000);
+      }
+    })();
+  </script>
+  <script>
+    /* shop section: play its intro once when it scrolls into view */
+    (function () {
+      const shop = document.querySelector('.products');
+      if (!shop) return;
+      if (!('IntersectionObserver' in window)) { shop.classList.add('in'); return; }
+      const io = new IntersectionObserver((entries, obs) => {
+        entries.forEach(e => {
+          if (e.isIntersecting) { shop.classList.add('in'); obs.disconnect(); }
+        });
+      }, { threshold: 0.15 });
+      io.observe(shop);
+    })();
+  </script>
+  <script>
+    /* #about: scroll there but never write the hash to the URL, so the position
+       is never saved/restored on reload */
+    (function () {
+      const about = document.getElementById('about');
+      if (!about) return;
+      document.querySelectorAll('a[href="#about"]').forEach(a => {
+        a.addEventListener('click', (e) => {
+          e.preventDefault();
+          about.scrollIntoView({ behavior: 'smooth' });
+        });
+      });
+    })();
+  </script>
+  <script>
     (function () {
       const body = document.body;
       const openBtn = document.querySelector('.topbar .cart');
@@ -1552,15 +1718,28 @@
         );
       }
 
-      function applyFilter() {
+      function applyFilter(animate) {
         const q = (searchEl.value || '').trim().toLowerCase();
-        let shown = 0;
+        let shown = 0, vis = 0;
         grid.querySelectorAll('.product-card').forEach(card => {
           const okCat = activeCat === 'All' || card.dataset.cat === activeCat;
           const okText = !q || card.dataset.text.includes(q);
           const show = okCat && okText;
           card.style.display = show ? '' : 'none';
-          if (show) shown++;
+          if (show) {
+            shown++;
+            // re-trigger a fresh staggered intro for the now-visible cards
+            if (animate) {
+              card.animate(
+                [
+                  { opacity: 0, transform: 'translateY(18px) scale(0.98)' },
+                  { opacity: 1, transform: 'none' }
+                ],
+                { duration: 460, delay: vis * 45, easing: 'cubic-bezier(0.22, 1, 0.36, 1)', fill: 'both' }
+              );
+              vis++;
+            }
+          }
         });
         const nr = grid.querySelector('.no-results');
         if (nr) nr.hidden = shown > 0;
@@ -1580,9 +1759,9 @@
         if (!chip) return;
         activeCat = chip.dataset.cat;
         filtersEl.querySelectorAll('.filter-chip').forEach(c => c.classList.toggle('active', c === chip));
-        applyFilter();
+        applyFilter(true);
       });
-      searchEl.addEventListener('input', applyFilter);
+      searchEl.addEventListener('input', () => applyFilter(true));
 
       // ---- cart drawer ----
       function renderCart() {
